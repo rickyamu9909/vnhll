@@ -14,18 +14,44 @@ type I18nContextValue = {
 };
 
 const I18nContext = createContext<I18nContextValue | null>(null);
+const LOCALE_KEY = "ants_locale";
+
+function readInitialLocale(fallback: Locale): Locale {
+  if (typeof window === "undefined") return fallback;
+  const saved = localStorage.getItem(LOCALE_KEY) as Locale | null;
+  return saved === "zh" || saved === "vi" ? saved : fallback;
+}
+
+function readCachedDict(locale: Locale): Record<string, string> | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(`ants_i18n_${locale}`);
+    return raw ? (JSON.parse(raw) as Record<string, string>) : null;
+  } catch {
+    return null;
+  }
+}
 
 export function I18nProvider({ children, initialLocale = "zh" }: { children: React.ReactNode; initialLocale?: Locale }) {
-  const [locale, setLocaleState] = useState<Locale>(initialLocale);
-  const [dict, setDict] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
+  const [locale, setLocaleState] = useState<Locale>(() => readInitialLocale(initialLocale));
+  const [dict, setDict] = useState<Record<string, string>>(() => readCachedDict(readInitialLocale(initialLocale)) || {});
+  const [loading, setLoading] = useState(() => !readCachedDict(readInitialLocale(initialLocale)));
 
   const reload = useCallback(async () => {
-    setLoading(true);
+    const cached = readCachedDict(locale);
+    if (!cached) setLoading(true);
     try {
-      const res = await fetch(`/api/i18n?locale=${locale}`);
+      const res = await fetch(`/api/i18n?locale=${locale}`, { cache: "force-cache" });
       const json = await res.json();
-      if (json.ok) setDict(json.data.dict || {});
+      if (json.ok) {
+        const nextDict = json.data.dict || {};
+        setDict(nextDict);
+        try {
+          sessionStorage.setItem(`ants_i18n_${locale}`, JSON.stringify(nextDict));
+        } catch {
+          /* ignore quota */
+        }
+      }
     } finally {
       setLoading(false);
     }
@@ -37,13 +63,8 @@ export function I18nProvider({ children, initialLocale = "zh" }: { children: Rea
 
   const setLocale = (l: Locale) => {
     setLocaleState(l);
-    if (typeof window !== "undefined") localStorage.setItem("ynhll_locale", l);
+    if (typeof window !== "undefined") localStorage.setItem(LOCALE_KEY, l);
   };
-
-  useEffect(() => {
-    const saved = localStorage.getItem("ynhll_locale") as Locale | null;
-    if (saved === "zh" || saved === "vi") setLocaleState(saved);
-  }, []);
 
   const value = useMemo(
     () => ({

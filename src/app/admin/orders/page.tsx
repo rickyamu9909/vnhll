@@ -43,7 +43,17 @@ export default function AdminOrdersPage() {
 
   return (
     <AdminShell>
-      <Typography.Title level={3}>{t("nav.admin_orders", "订单管理")}</Typography.Title>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16, gap: 12, flexWrap: "wrap" }}>
+        <Typography.Title level={3} style={{ margin: 0 }}>
+          {t("nav.admin_orders", "订单管理")}
+        </Typography.Title>
+        <Space>
+          <Button onClick={load}>刷新</Button>
+          <Link href="/admin/orders/new">
+            <Button type="primary">代客建单</Button>
+          </Link>
+        </Space>
+      </div>
       <Card>
         <Table
           rowKey="id"
@@ -99,9 +109,6 @@ export default function AdminOrdersPage() {
           ]}
         />
       </Card>
-      <div style={{ marginTop: 12 }}>
-        <Button onClick={load}>刷新</Button>
-      </div>
     </AdminShell>
   );
 }

@@ -105,12 +105,12 @@ export default function OrderDetailPage() {
       <Card
         extra={
           <Space wrap>
-            {order.status === "PENDING_REVIEW" && (
+            {order.status === "PENDING_REVIEW" || order.status === "REJECTED" ? (
               <Link href={`/orders/${id}/edit`}>
                 <Button>{t("action.edit", "修改")}</Button>
               </Link>
-            )}
-            {(order.status === "PENDING_REVIEW" || order.status === "BIDDING") && (
+            ) : null}
+            {(order.status === "PENDING_REVIEW" || order.status === "BIDDING" || order.status === "REJECTED") && (
               <Button danger loading={loading} onClick={cancelOrder}>
                 {t("action.cancel", "取消订单")}
               </Button>

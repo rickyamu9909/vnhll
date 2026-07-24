@@ -61,8 +61,8 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   });
   if (!order) return jsonFail("订单不存在", 404);
 
-  if (order.status !== OrderStatus.PENDING_REVIEW) {
-    return jsonFail("仅待审核订单可修改");
+  if (order.status !== OrderStatus.PENDING_REVIEW && order.status !== OrderStatus.REJECTED) {
+    return jsonFail("仅待审核或已拒绝订单可修改");
   }
 
   const body = await req.json();
@@ -83,11 +83,13 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
         cargoVolumeM3: Number(body.cargoVolumeM3),
         vehicleType: body.vehicleType as VehicleType,
         customerBidVnd: toBigIntMoney(body.customerBidVnd),
+        status: OrderStatus.PENDING_REVIEW,
+        rejectReason: null,
         statusLogs: {
           create: {
             fromStatus: order.status,
-            toStatus: order.status,
-            note: "客户修改订单",
+            toStatus: OrderStatus.PENDING_REVIEW,
+            note: order.status === OrderStatus.REJECTED ? "客户修改后重新提交审核" : "客户修改订单",
             operatorId: user!.id,
           },
         },
@@ -119,9 +121,13 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   if (!order) return jsonFail("订单不存在", 404);
 
   if (action === "cancel") {
-    const cancellable: OrderStatus[] = [OrderStatus.PENDING_REVIEW, OrderStatus.BIDDING];
+    const cancellable: OrderStatus[] = [
+      OrderStatus.PENDING_REVIEW,
+      OrderStatus.BIDDING,
+      OrderStatus.REJECTED,
+    ];
     if (!cancellable.includes(order.status)) {
-      return jsonFail("当前状态不可取消");
+      return jsonFail("当前状态不可取消（运输中及之后请联系管理员）");
     }
     const updated = await prisma.order.update({
       where: { id: order.id },
