@@ -40,7 +40,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   return (
     <Layout className="page-shell">
       <Sider breakpoint="lg" collapsedWidth={0} style={{ background: "#001529" }}>
-        <div style={{ color: "#fff", fontWeight: 700, padding: 16, fontSize: 18 }}>ynhll Admin</div>
+        <div style={{ color: "#fff", fontWeight: 700, padding: 16, fontSize: 18 }}>ANTS Admin</div>
         <Menu
           theme="dark"
           mode="inline"

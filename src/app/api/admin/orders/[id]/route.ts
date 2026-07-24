@@ -48,28 +48,68 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   const order = await prisma.order.findUnique({ where: { id: params.id } });
   if (!order) return jsonFail("订单不存在", 404);
 
+  /** 通过：必须同时录入司机 + 司机价格，直接成交 */
   if (action === "approve") {
     if (order.status !== OrderStatus.PENDING_REVIEW) return jsonFail("当前状态不可审核");
-    const updated = await prisma.order.update({
-      where: { id: order.id },
-      data: {
-        status: OrderStatus.BIDDING,
-        statusLogs: {
-          create: {
-            fromStatus: order.status,
-            toStatus: OrderStatus.BIDDING,
-            note: "管理员审核通过，进入竞价",
-            operatorId: user!.id,
+    const driverId = String(body.driverId || "");
+    if (!driverId) return jsonFail("通过前必须选择司机并录入价格");
+    if (body.priceVnd === undefined || body.priceVnd === null || body.priceVnd === "") {
+      return jsonFail("通过前必须录入司机价格");
+    }
+    const priceVnd = toBigIntMoney(body.priceVnd);
+    if (priceVnd <= BigInt(0)) return jsonFail("司机价格必须大于 0");
+
+    const driver = await prisma.driver.findUnique({ where: { id: driverId } });
+    if (!driver || driver.status !== "ACTIVE") return jsonFail("司机不可用");
+
+    const { platformFeeVnd, driverIncomeVnd } = calcCommission(priceVnd);
+
+    const updated = await prisma.$transaction(async (tx) => {
+      await tx.orderBid.upsert({
+        where: { orderId_driverId: { orderId: order.id, driverId } },
+        create: {
+          orderId: order.id,
+          driverId,
+          priceVnd,
+          note: body.note ? String(body.note) : "审核通过时录入",
+        },
+        update: { priceVnd, note: body.note ? String(body.note) : undefined },
+      });
+
+      return tx.order.update({
+        where: { id: order.id },
+        data: {
+          status: OrderStatus.MATCHED,
+          matchedDriverId: driverId,
+          dealPriceVnd: priceVnd,
+          platformFeeVnd,
+          driverIncomeVnd,
+          rejectReason: null,
+          statusLogs: {
+            create: {
+              fromStatus: order.status,
+              toStatus: OrderStatus.MATCHED,
+              note: `审核通过并成交，司机价 ${priceVnd.toString()} VND，佣金15%`,
+              operatorId: user!.id,
+            },
           },
         },
-      },
+        include: { matchedDriver: true },
+      });
     });
-    return jsonOk(serializeMoney(updated as unknown as Record<string, unknown>));
+
+    return jsonOk({
+      ...serializeMoney(updated as unknown as Record<string, unknown>),
+      dealPriceVnd: updated.dealPriceVnd?.toString(),
+      platformFeeVnd: updated.platformFeeVnd?.toString(),
+      driverIncomeVnd: updated.driverIncomeVnd?.toString(),
+    });
   }
 
   if (action === "reject") {
     if (order.status !== OrderStatus.PENDING_REVIEW) return jsonFail("当前状态不可拒绝");
-    const reason = String(body.reason || "审核拒绝");
+    const reason = String(body.reason || "").trim();
+    if (!reason) return jsonFail("拒绝必须填写理由");
     const updated = await prisma.order.update({
       where: { id: order.id },
       data: {
@@ -89,8 +129,8 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   }
 
   if (action === "add_bid") {
-    if (order.status !== OrderStatus.BIDDING && order.status !== OrderStatus.MATCHED) {
-      return jsonFail("仅竞价中/已接单可录入报价");
+    if (order.status !== OrderStatus.BIDDING && order.status !== OrderStatus.MATCHED && order.status !== OrderStatus.PENDING_REVIEW) {
+      return jsonFail("当前状态不可录入报价");
     }
     const driverId = String(body.driverId || "");
     const priceVnd = toBigIntMoney(body.priceVnd);
@@ -111,7 +151,9 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   }
 
   if (action === "match") {
-    if (order.status !== OrderStatus.BIDDING) return jsonFail("仅竞价中可匹配");
+    if (order.status !== OrderStatus.BIDDING && order.status !== OrderStatus.PENDING_REVIEW) {
+      return jsonFail("当前状态不可匹配");
+    }
     const driverId = String(body.driverId || "");
     if (!driverId) return jsonFail("请选择成交司机");
 

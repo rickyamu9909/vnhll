@@ -36,7 +36,7 @@ export function buildDriverNotifyMessage(order: NotifyOrder, adminHotline: strin
   const pickupAt = dayjs(order.pickupAt).format("YYYY-MM-DD HH:mm");
 
   return [
-    "【ynhll - Thông báo nhận hàng】",
+    "【ANTS - Thông báo nhận hàng】",
     `Mã đơn: ${order.orderNo}`,
     "【Nhận hàng】",
     `Thời gian: ${pickupAt}`,

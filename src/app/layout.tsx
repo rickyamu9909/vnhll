@@ -3,8 +3,8 @@ import { AppProviders } from "@/components/AppProviders";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "ynhll 越南散货车平台",
-  description: "ynhll MVP - Customer & Admin Web",
+  title: "ANTS 越南散货车平台",
+  description: "ANTS MVP - Customer & Admin Web",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
