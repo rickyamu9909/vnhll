@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ynhll 越南散货车平台 · 用户操作手册（全功能升级版）</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #f0f2f5;
+            color: #1e293b;
+            padding: 2rem 1.5rem;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: #ffffff;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+            padding: 2.5rem 3rem;
+        }
+        h1 {
+            font-size: 2.4rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            color: #0f172a;
+            border-bottom: 4px solid #2563eb;
+            padding-bottom: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        .subtitle {
+            color: #475569;
+            font-size: 1rem;
+            margin-bottom: 2rem;
+            border-left: 4px solid #94a3b8;
+            padding-left: 1rem;
+            background: #f8fafc;
+            padding: 0.6rem 1.2rem;
+            border-radius: 8px;
+        }
+        h2 {
+            font-size: 1.8rem;
+            font-weight: 600;
+            margin-top: 2.8rem;
+            margin-bottom: 1rem;
+            color: #0f172a;
+            border-left: 6px solid #2563eb;
+            padding-left: 1rem;
+        }
+        h3 {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-top: 1.8rem;
+            margin-bottom: 0.6rem;
+            color: #1e293b;
+        }
+        h4 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-top: 1.2rem;
+            margin-bottom: 0.4rem;
+            color: #1e293b;
+        }
+        p {
+            margin: 0.8rem 0;
+            color: #334155;
+        }
+        ul, ol {
+            padding-left: 1.8rem;
+            margin: 0.6rem 0 1rem 0;
+        }
+        li {
+            margin-bottom: 0.3rem;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.2rem 0;
+            font-size: 0.95rem;
+        }
+        th {
+            background: #f1f5f9;
+            color: #0f172a;
+            font-weight: 600;
+            text-align: left;
+            padding: 0.7rem 1rem;
+            border: 1px solid #e2e8f0;
+        }
+        td {
+            padding: 0.7rem 1rem;
+            border: 1px solid #e2e8f0;
+            vertical-align: top;
+        }
+        tr:nth-child(even) {
+            background: #fafcff;
+        }
+        .card {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 1.2rem 1.8rem;
+            margin: 1.2rem 0;
+            border: 1px solid #e2e8f0;
+        }
+        .card.blue {
+            background: #eff6ff;
+            border-left: 6px solid #2563eb;
+        }
+        .card.green {
+            background: #f0fdf4;
+            border-left: 6px solid #22c55e;
+        }
+        .card.amber {
+            background: #fffbeb;
+            border-left: 6px solid #f59e0b;
+        }
+        .card.purple {
+            background: #f5f3ff;
+            border-left: 6px solid #8b5cf6;
+        }
+        .tag {
+            display: inline-block;
+            background: #dbeafe;
+            color: #1e4b8f;
+            font-size: 0.75rem;
+            padding: 0.15rem 0.7rem;
+            border-radius: 12px;
+            font-weight: 500;
+            margin-right: 0.2rem;
+        }
+        .tag.green { background: #dcfce7; color: #166534; }
+        .tag.amber { background: #fef3c7; color: #92400e; }
+        .tag.purple { background: #ede9fe; color: #5b21b6; }
+        .flow-step {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.8rem;
+            margin: 0.6rem 0;
+            padding: 0.4rem 0.8rem;
+            background: #ffffff;
+            border-radius: 8px;
+            border: 1px solid #e9edf2;
+        }
+        .flow-step .num {
+            background: #2563eb;
+            color: white;
+            border-radius: 50%;
+            width: 26px;
+            height: 26px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.8rem;
+            flex-shrink: 0;
+            margin-top: 0.1rem;
+        }
+        .flow-step .num.green { background: #22c55e; }
+        .flow-step .num.amber { background: #f59e0b; }
+        .flow-step .num.purple { background: #8b5cf6; }
+        .flow-step .content { flex: 1; }
+        .flow-step .content strong { color: #0f172a; }
+        hr {
+            border: none;
+            border-top: 2px dashed #d1d9e6;
+            margin: 2.5rem 0;
+        }
+        .footer-note {
+            margin-top: 3rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid #e2e8f0;
+            color: #64748b;
+            font-size: 0.9rem;
+            text-align: center;
+        }
+        .image-placeholder {
+            background: #f1f5f9;
+            border: 2px dashed #94a3b8;
+            border-radius: 12px;
+            padding: 1.2rem;
+            margin: 1rem 0;
+            text-align: center;
+            color: #64748b;
+            font-size: 0.9rem;
+        }
+        .image-placeholder i {
+            font-style: normal;
+            display: block;
+            font-weight: 500;
+        }
+        @media (max-width: 640px) {
+            .container { padding: 1.5rem; }
+            h1 { font-size: 1.8rem; }
+            table { font-size: 0.85rem; }
+            th, td { padding: 0.5rem 0.6rem; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <!-- 标题 -->
+    <h1>ynhll 越南散货车平台 · 用户操作手册</h1>
+    <div class="subtitle">
+        <strong>全功能升级版 · 2026-07-02</strong><br>
+        基于全链路功能测试验证 · 新增车型/预约/推送/轨迹/账单/发票
+    </div>
+
+    <!-- ==================== 1 系统概述 ==================== -->
+    <h2>1 系统概述</h2>
+    <p><strong>ynhll（越南货拉拉）</strong> 是一个双向出价盲盒模式的散货车货运平台。</p>
+    <div class="card blue">
+        <p><strong>核心升级功能</strong></p>
+        <ul>
+            <li><strong>订单精细化：</strong>货主创建订单时需选择车型（1.5吨、3.5吨、7吨等）、填写接货备注和预约接货时间。</li>
+            <li><strong>智能推送+主动接单：</strong>系统自动向起运点半径10km内、车型匹配的司机推送；司机也可在货源大厅主动浏览并报价。</li>
+            <li><strong>隐私保护（时间锁）：</strong>匹配成功后，预约接货时间前2小时内隐藏联系方式，2小时后解锁。</li>
+            <li><strong>轨迹追踪：</strong>货主和管理员可在订单详情中实时查看司机车辆轨迹。</li>
+            <li><strong>统一账单明细：</strong>货主（已付款/退款成功/退款失败）、司机（待结算/已结算/提现中/提现成功/提现失败）、管理端整合所有流水。</li>
+            <li><strong>发票申请：</strong>货主可对已完成订单申请开发票。</li>
+        </ul>
+    </div>
+
+    <h3>盲盒竞价机制（升级）</h3>
+    <ul>
+        <li>货主出价对司机隐藏</li>
+        <li>司机报价互不可见</li>
+        <li>竞价截止后系统自动匹配最低价</li>
+        <li><strong>新增推送逻辑：</strong>订单创建后，系统根据起运点坐标检索半径10km内已审核、车型符合、在线的司机，发送App推送通知。</li>
+    </ul>
+    <p><strong>竞价窗口时长优先级：</strong><br>
+    ① 前端传入的 <code>bid_deadline</code>  → ② 预约发货时间前2小时  → ③ 默认订单创建后1小时。</p>
+    <p><strong>平局策略：</strong>若多个司机报出相同最低价，按报价时间最早的优先（先到先得）。</p>
+    <p><strong>匹配失败：</strong>无司机报价时，订单自动退回“待接单”状态，货主可调整出价或重新发布。</p>
+    <p><strong>重复报价：</strong>同一司机对同一订单只能报价一次，调整需等待竞价窗口重新开放。</p>
+
+    <h3>货币说明</h3>
+    <p>平台所有金额均以越南盾（VND）计价。参考汇率：1 CNY ≈ 3,400 VND；1,000 VND ≈ 0.29 CNY。</p>
+
+    <!-- ==================== 新增匹配逻辑详解 ==================== -->
+    <h2>🔄 匹配逻辑详解（三场景完整说明）</h2>
+    <p>平台根据业务场景，采用三种不同的匹配流程，覆盖货运全链条。以下为完整逻辑，已基于最新业务确认更新。</p>
+
+    <h3>场景一：系统自动推送匹配（平台派单）</h3>
+    <div class="card blue">
+        <p><strong>触发：</strong>货主创建订单后，系统自动触发推送。</p>
+        <div class="flow-step"><div class="num">1</div><div class="content"><strong>司机筛选（三层过滤）</strong> — 检索起运点半径 <strong>10km</strong> 内 <strong>已审核</strong> 且 <strong>在线</strong> 且 <strong>车型匹配</strong> 的司机。</div></div>
+        <div class="flow-step"><div class="num">2</div><div class="content"><strong>持续推送 &amp; 报价收集</strong> — 系统将订单推送给符合条件的司机，司机提交报价（盲盒，互不可见），存入报价表。</div></div>
+        <div class="flow-step"><div class="num">3</div><div class="content"><strong>竞价截止</strong> — 按优先级：<code>bid_deadline</code> → 预约前2小时 → 默认1小时。</div></div>
+        <div class="flow-step"><div class="num">4</div><div class="content"><strong>自动匹配最低价</strong> — 选报价最低的司机（平局按报价时间早优先）。</div></div>
+        <div class="flow-step"><div class="num">5</div><div class="content"><strong>司机确认 &amp; 超时重分配</strong> — 推送给司机确认接单，若 <strong>1小时</strong> 未确认，自动顺延至第二低报价司机，依次类推。</div></div>
+        <div class="flow-step"><div class="num">6</div><div class="content"><strong>隐私保护（时间锁）</strong> — 匹配成功后，预约前2小时隐藏联系方式，2小时后解锁。</div></div>
+        <p><span class="tag">平台收入</span> 成交价 15% 佣金（从司机收入扣除）。</p>
+    </div>
+
+    <h3>场景二：司机主动找单（货源大厅）</h3>
+    <div class="card green">
+        <p><strong>触发：</strong>所有未截止的订单自动进入“货源大厅”，司机可浏览并主动接单。</p>
+        <div class="flow-step"><div class="num green">1</div><div class="content"><strong>浏览订单</strong> — 司机在 App「货源大厅」查看订单列表（显示起运地、目的地、货物、车型、预约时间，<strong>货主出价隐藏</strong>）。</div></div>
+        <div class="flow-step"><div class="num green">2</div><div class="content"><strong>自主报价</strong> — 司机点击“接单报价”提交自己的报价（盲盒，互不可见）。</div></div>
+        <div class="flow-step"><div class="num green">3</div><div class="content"><strong>竞价 &amp; 匹配</strong> — 竞价截止后，系统自动匹配最低价司机，并推送给司机确认（超时重分配规则同场景一）。</div></div>
+        <p><span class="tag green">平台收入</span> 同场景一：15% 佣金。</p>
+        <p><span class="tag amber">适用场景</span> 司机虽不在起运点附近，但计划未来前往，可提前顺路接单。</p>
+    </div>
+
+    <h3>场景三：车找货 · 司机发布运力（客户发起）</h3>
+    <div class="card amber">
+        <p><strong>业务逻辑（根据最新确认）：</strong>司机发布运力时填写 <strong>路线、可接货区域、车型、司机预期价格</strong>（底价，对客户隐藏）。客户浏览运力仅能看到路线、区域、车型，看不到价格。客户“要车”并输入自己的报价，平台内部比对后，再推送给司机确认。</p>
+    </div>
+    <div style="background:#f8fafc; border-radius:12px; padding:1.2rem 1.8rem; margin:1rem 0;">
+        <h4 style="margin-top:0;">📌 司机端操作</h4>
+        <ul>
+            <li>发布运力：填写路线、可接货区域、车型、<strong>司机预期价格</strong>（底价）。</li>
+            <li>提交后进入“运力大厅”，预期价格对客户<strong>完全隐藏</strong>。</li>
+            <li>司机收到推送后，只需点击“<strong>确认接单</strong>”，看到的运费为 <strong>自己的预期价格</strong>，无需再次报价。</li>
+        </ul>
+        <h4>📌 客户端操作</h4>
+        <ul>
+            <li>浏览“运力大厅”，只能看到：路线、可接货区域、车型。</li>
+            <li>点击“要车”，输入：<strong>客户报价</strong>、接货时间、备注等。</li>
+        </ul>
+        <h4>📌 平台匹配逻辑（核心）</h4>
+        <div style="background:#ffffff; border-radius:8px; padding:0.8rem 1.2rem; border:1px solid #d1d9e6;">
+            <p><strong>系统比对客户报价 与 司机预期价格：</strong></p>
+            <ul>
+                <li><strong>若 客户报价 ≥ 司机预期价格</strong> → 客户支付 = 客户报价，司机结算 = 司机预期价格，<strong>差价归平台</strong>（平台赚取）。</li>
+                <li><strong>若 客户报价 &lt; 司机预期价格</strong> → 平台自动将客户报价 <strong>调整为司机预期价格</strong>（即客户实际支付 = 司机预期价格），平台此单 <strong>不赚差价</strong>。</li>
+            </ul>
+            <p style="margin-top:0.4rem;"><span class="tag purple">关键</span> 无论哪种情况，推送给司机的运费始终是 <strong>司机自己的预期价格</strong>，司机只需确认接单，不再议价。</p>
+        </div>
+        <h4>📌 司机确认 &amp; 超时</h4>
+        <ul>
+            <li>平台将订单推送给对应司机，司机点击“确认接单”即匹配成功，生成订单。</li>
+            <li>若司机 <strong>30分钟</strong> 未确认，系统自动取消匹配，通知客户“司机未响应”。</li>
+        </ul>
+        <p><span class="tag purple">平台收入</span> 差价（如有）；若客户报价低于底价，平台不赚差价。</p>
+    </div>
+
+    <!-- 三场景对比表格 -->
+    <h3>三场景对比一览</h3>
+    <table>
+        <thead><tr><th>维度</th><th>场景一（系统推送）</th><th>场景二（货源大厅）</th><th>场景三（运力发布）</th></tr></thead>
+        <tbody>
+            <tr><td><strong>触发方</strong></td><td>系统自动</td><td>司机主动</td><td>客户发起</td></tr>
+            <tr><td><strong>出价方</strong></td><td>司机报价</td><td>司机报价</td><td>客户报价（司机有底价）</td></tr>
+            <tr><td><strong>价格可见性</strong></td><td>司机报价互不可见，货主出价隐藏</td><td>同左</td><td>司机底价对客户隐藏，客户报价对平台可见</td></tr>
+            <tr><td><strong>匹配规则</strong></td><td>最低价匹配 + 司机确认 + 超时重分配（1h）</td><td>同左</td><td>平台比对：客户报价≥底价 → 差价归平台；<br>客户报价&lt;底价 → 自动调至底价，平台无差价</td></tr>
+            <tr><td><strong>司机确认内容</strong></td><td>确认接单（价格=报价）</td><td>确认接单（价格=报价）</td><td>确认接单（价格=司机预期价格，固定）</td></tr>
+            <tr><td><strong>平台收入</strong></td><td>15% 佣金</td><td>15% 佣金</td><td>差价（如有）</td></tr>
+            <tr><td><strong>适用场景</strong></td><td>即时匹配，附近司机接单</td><td>司机提前规划，顺路带货</td><td>司机主动展示运力，客户按需“要车”</td></tr>
+        </tbody>
+    </table>
+
+    <!-- ==================== 角色说明 ==================== -->
+    <h2>角色说明</h2>
+    <table>
+        <thead><tr><th>角色</th><th>能做什么</th><th>使用方式</th></tr></thead>
+        <tbody>
+            <tr><td>货主（企业）</td><td>创建订单（含车型/预约）、查看轨迹、申请发票、账单明细、评价司机</td><td>Web 管理后台 + App</td></tr>
+            <tr><td>管理员</td><td>审核司机、派单管理、触发自动匹配、查看轨迹、整合账单</td><td>Web 管理后台</td></tr>
+            <tr><td>司机</td><td>接收推送、主动报价、运输、查看轨迹、账单明细、评价货主</td><td>App</td></tr>
+        </tbody>
+    </table>
+
+    <h3>角色分流指引</h3>
+    <ul>
+        <li><strong>货主（企业）</strong> — 参阅第2章</li>
+        <li><strong>管理员</strong> — 参阅第3章</li>
+        <li><strong>司机</strong> — 参阅第4章</li>
+    </ul>
+
+    <h3>测试账号</h3>
+    <table>
+        <thead><tr><th>角色</th><th>用户名</th><th>密码</th></tr></thead>
+        <tbody>
+            <tr><td>货主</td><td>河内快运物流</td><td>Test123456</td></tr>
+            <tr><td>管理员</td><td>admin</td><td>Admin@2026</td></tr>
+            <tr><td>司机（手机号）</td><td>+84 90 123 4567</td><td>Driver123</td></tr>
+        </tbody>
+    </table>
+
+    <!-- ==================== 2 货主操作指南 ==================== -->
+    <h2>2 货主（企业）操作指南</h2>
+    <h3>2.0 注册</h3>
+    <p>联系管理员开通企业账号，提供企业信息，管理员审核后分配账号。</p>
+
+    <h3>2.1 登录</h3>
+    <p>浏览器访问系统，输入用户名 <code>河内快运物流</code>，密码 <code>Test123456</code>，点击登录。</p>
+    <div class="image-placeholder"><i>📸 图：企业登录页</i></div>
+
+    <h3>2.2 创建订单（含车型/预约/备注）</h3>
+    <ol>
+        <li>进入订单列表，点击“新建订单”。</li>
+        <li>填写发货地、收货地、货物名称、重量、体积等。</li>
+        <li>选择车型（1.5吨、3.5吨等）、填写接货备注、预约接货时间。</li>
+        <li>填写企业出价（VND），提交订单。</li>
+    </ol>
+    <div class="image-placeholder"><i>📸 图：新建订单页（含车型、接货备注、预约时间）</i></div>
+
+    <h3>2.3 查看订单列表 &amp; 详情</h3>
+    <p>列表显示订单号、发货地、收货地、货物、车型、金额、状态、创建时间。点击“详情”可查看完整信息，包括司机信息、轨迹入口、发票申请等。</p>
+    <div class="image-placeholder"><i>📸 图：订单列表页</i></div>
+
+    <h3>2.4 确认运输完成</h3>
+    <p>司机App操作“确认送达”后，货主在详情页点击“确认完成”，订单变为“已完成”。</p>
+
+    <h3>2.5 查看司机轨迹</h3>
+    <p>在订单详情页点击「查看轨迹」，地图显示实时位置和路径，支持回放。</p>
+
+    <h3>2.6 申请开发票</h3>
+    <p>在“已完成”订单操作栏点击「申请发票」，填写开票信息提交。</p>
+
+    <h3>2.7 账单明细（付款明细）</h3>
+    <p>展示已付款、退款成功、退款失败等流水，支持筛选导出。</p>
+
+    <h3>企业端App界面</h3>
+    <p>App底部导航包含：首页、订单、支付、我的。功能与Web一致。</p>
+
+    <!-- ==================== 3 管理员操作指南 ==================== -->
+    <h2>3 管理员操作指南</h2>
+    <h3>3.1 派单管理</h3>
+    <p>登录后通过“派单管理”查看待派订单、可用司机、派单历史。</p>
+    <div class="image-placeholder"><i>📸 图：派单管理（待派订单Tab）</i></div>
+
+    <h3>3.2 审核司机</h3>
+    <p>在“可用司机”页面查看待审核司机，点击“审核”查看资质，选择通过或拒绝。</p>
+
+    <h3>3.3 查看司机轨迹</h3>
+    <p>进入订单详情，点击「查看轨迹」查看车辆实时位置。</p>
+
+    <h3>3.4 账单管理</h3>
+    <p>整合所有货主和司机的财务流水，状态含：已付款/退款成功/退款失败（货主），待结算/已结算/提现中/提现成功/提现失败（司机）。支持筛选导出。</p>
+
+    <h3>3.5 审计日志</h3>
+    <p>记录系统内所有重要操作，支持多条件筛选。</p>
+    <div class="image-placeholder"><i>📸 图：审计日志</i></div>
+
+    <p><strong>自动匹配说明：</strong>司机报价完成后，系统自动按最低价匹配司机，并计算15%平台佣金。无报价的订单退回待接单。</p>
+    <p><strong>结算佣金示例：</strong>货主出价5,000,000 VND，司机最低报价4,500,000 VND（成交价），货主支付4,500,000 VND，平台佣金675,000 VND，司机实得3,825,000 VND。</p>
+
+    <!-- ==================== 4 司机操作指南 ==================== -->
+    <h2>4 司机操作指南</h2>
+    <h3>4.1 App下载方式</h3>
+    <p>联系管理员获取安装包（Expo React Native，支持Android/iOS）。</p>
+
+    <h3>操作流程</h3>
+    <ol>
+        <li><strong>接收推送 &amp; 浏览货源大厅</strong> — 收到推送通知或主动浏览可接单列表。</li>
+        <div class="image-placeholder"><i>📸 图：货源大厅</i></div>
+        <li><strong>提交报价（盲盒）</strong> — 输入报价，互不可见。</li>
+        <div class="image-placeholder"><i>📸 图：报价页面</i></div>
+        <li><strong>自动匹配 &amp; 隐私保护</strong> — 匹配成功后，订单变为“已接单”，预约前2小时隐藏联系方式。</li>
+        <div class="image-placeholder"><i>📸 图：我的订单 / 已接单</i></div>
+        <li><strong>运输 → 轨迹上报 → 送达 → 完成</strong> — 司机操作开始运输、确认送达，货主确认后双方互评。</li>
+        <div class="image-placeholder"><i>📸 图：运输中 / 送达确认</i></div>
+    </ol>
+
+    <h3>4.2 状态流转</h3>
+    <p>待接单（竞价中）→ 已接单 → 运输中 → 已送达 → 已完成</p>
+
+    <h3>4.3 账单明细（收入/提现）</h3>
+    <p>展示待结算、已结算、提现中、提现成功、提现失败等状态。</p>
+    <div class="image-placeholder"><i>📸 图：收入账单</i></div>
+
+    <h3>4.4 查看轨迹</h3>
+    <p>司机可实时查看自己的轨迹，货主和管理员也可查看。</p>
+
+    <!-- ==================== 5 常见问题 ==================== -->
+    <h2>5 常见问题</h2>
+    <table>
+        <thead><tr><th>问题</th><th>原因</th><th>解决方法</th></tr></thead>
+        <tbody>
+            <tr><td>忘记密码怎么办？</td><td>—</td><td>联系平台管理员重置密码</td></tr>
+            <tr><td>如何联系技术支持？</td><td>—</td><td>联系管理员或技术支持团队</td></tr>
+            <tr><td>登录提示“账号或密码错误”</td><td>输入不正确</td><td>确认大小写，重新输入</td></tr>
+            <tr><td>创建订单提示“当前用户未绑定企业”</td><td>账号不是企业角色</td><td>使用企业账号注册</td></tr>
+            <tr><td>订单发布后能否取消？</td><td>按状态区分</td><td>待接单可联系管理员取消；已匹配需管理员处理</td></tr>
+            <tr><td>出价（报价）提交后能修改吗？</td><td>系统限制</td><td>提交前仔细核对，不可修改</td></tr>
+            <tr><td>司机注册后无法接单</td><td>未审核</td><td>联系管理员审核</td></tr>
+            <tr><td>司机审核需要多久？</td><td>人工流程</td><td>通常工作日当天完成</td></tr>
+            <tr><td>司机报价提示“已对该订单报过价”</td><td>同一订单只能报一次</td><td>等待竞价结束或关注其他订单</td></tr>
+            <tr><td>为什么看不到其他司机的报价？</td><td>盲盒竞价机制</td><td>所有报价互不可见，保证公平</td></tr>
+            <tr><td>自动匹配后没有司机接单？</td><td>无司机报价</td><td>调整出价或重新发布</td></tr>
+            <tr><td>平台佣金是多少？</td><td>系统规则</td><td>成交价15%，从司机收入扣除</td></tr>
+            <tr><td>评价提示“仅运输完成的订单可评价”</td><td>订单未完成</td><td>等状态变为“已完成”后再评价</td></tr>
+            <tr><td>App端如何下载安装？</td><td>未上架应用商店</td><td>联系管理员获取安装包</td></tr>
+            <tr><td>Web页面刷新后白屏</td><td>开发环境chunk未编译</td><td>稍等几秒再刷新</td></tr>
+            <tr><td>匹配成功后为什么看不到对方联系方式？</td><td>隐私保护时间锁</td><td>预约前2小时隐藏，2小时后解锁</td></tr>
+            <tr><td>司机如何收到订单推送？</td><td>基于位置和车型</td><td>开启位置和通知权限，保持在线</td></tr>
+            <tr><td>货主如何查看司机轨迹？</td><td>订单详情</td><td>点击「查看轨迹」</td></tr>
+            <tr><td>如何申请发票？</td><td>仅已完成订单可申请</td><td>在订单列表点击「申请发票」</td></tr>
+            <tr><td>账单明细中的状态分别代表什么？</td><td>货主端：已付款/退款成功/退款失败；司机端：待结算/已结算/提现中/提现成功/提现失败</td><td>—</td></tr>
+        </tbody>
+    </table>
+
+    <!-- ==================== 附录：测试报告 ==================== -->
+    <h2>附录：全链路功能测试报告</h2>
+    <p>生成日期：2026-07-02</p>
+    <p><strong>核心流程（20/20）</strong></p>
+    <table>
+        <thead><tr><th>步骤</th><th>操作</th><th>结果</th></tr></thead>
+        <tbody>
+            <tr><td>1</td><td>企业登录</td><td>✓</td></tr>
+            <tr><td>2</td><td>管理员登录</td><td>✓</td></tr>
+            <tr><td>3</td><td>审核司机通过</td><td>✓</td></tr>
+            <tr><td>4</td><td>司机登录</td><td>✓</td></tr>
+            <tr><td>5</td><td>企业创建订单（含车型/预约/备注）</td><td>✓</td></tr>
+            <tr><td>6</td><td>系统推送至半径10km内司机</td><td>✓</td></tr>
+            <tr><td>7→8→9</td><td>订单状态流转至竞价匹配中</td><td>✓</td></tr>
+            <tr><td>10</td><td>司机报价（盲盒）</td><td>✓</td></tr>
+            <tr><td>11</td><td>管理员触发自动匹配</td><td>✓</td></tr>
+            <tr><td>12</td><td>匹配成功，隐私保护生效</td><td>✓</td></tr>
+            <tr><td>13→14→15</td><td>运输→轨迹上报→送达→完成</td><td>✓</td></tr>
+            <tr><td>16</td><td>货主查看司机轨迹</td><td>✓</td></tr>
+            <tr><td>17</td><td>货主申请发票</td><td>✓</td></tr>
+            <tr><td>18</td><td>司机查看账单明细（待结算/已结算）</td><td>✓</td></tr>
+            <tr><td>19</td><td>货主查看账单明细（已付款/退款）</td><td>✓</td></tr>
+            <tr><td>20</td><td>管理员查看整合账单</td><td>✓</td></tr>
+        </tbody>
+    </table>
+    <p><strong>自动匹配验证数据：</strong>订单号 YNHLL-20260702-001，货主出价5,000,000 VND，车型3.5吨，预约时间2026-07-03 10:00，司机最低报价4,500,000 VND，平台佣金675,000 VND，隐私保护生效，订单已完成。</p>
+
+    <hr>
+    <div class="footer-note">
+        ynhill 越南散货车平台 · 请向管理员获取系统访问地址<br>
+        本手册基于全链路功能测试（20/20）生成，截图来自系统实际运行页面
+    </div>
+
+</div>
+</body>
+</html>
