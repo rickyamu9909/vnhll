@@ -84,7 +84,7 @@ export default function AdminI18nPage() {
           rows={6}
           value={csvText}
           onChange={(e) => setCsvText(e.target.value)}
-          placeholder={"key,zh,vi,group\napp.name,ynhll 越南散货车,ynhll Vận tải Việt Nam,common"}
+          placeholder={"key,zh,vi,group\napp.name,ANTS 越南散货车,ANTS Vận tải Việt Nam,common"}
         />
       </Card>
       <Card>

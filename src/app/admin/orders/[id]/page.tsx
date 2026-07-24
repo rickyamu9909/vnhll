@@ -20,11 +20,12 @@ import {
 import dayjs from "dayjs";
 import { CopyOutlined } from "@ant-design/icons";
 import { AdminShell } from "@/components/AdminShell";
+import { BackButton } from "@/components/BackButton";
 import { useI18n } from "@/components/I18nProvider";
 import { apiFetch, statusLabel, vehicleLabel } from "@/lib/client";
 import { formatVnd } from "@/lib/money";
 
-type Driver = { id: string; name: string; phone: string; status: string; vehicleType: string };
+type Driver = { id: string; name: string; phone: string; status: string; vehicleType: string; plateNumber?: string };
 type Bid = { id: string; driverId: string; priceVnd: string; note?: string; driver: Driver };
 type OrderDetail = {
   id: string;
@@ -58,7 +59,7 @@ export default function AdminOrderDetailPage() {
   const { t } = useI18n();
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [drivers, setDrivers] = useState<Driver[]>([]);
-  const [bidForm] = Form.useForm();
+  const [approveForm] = Form.useForm();
   const [loading, setLoading] = useState(false);
 
   const load = async () => {
@@ -87,10 +88,11 @@ export default function AdminOrderDetailPage() {
     setLoading(false);
     if (!res.ok) {
       message.error(res.message || "操作失败");
-      return;
+      return false;
     }
     message.success(t("msg.save_success", "保存成功"));
     load();
+    return true;
   };
 
   const copyNotify = async () => {
@@ -110,6 +112,36 @@ export default function AdminOrderDetailPage() {
     }
   };
 
+  const onApprove = async (values: { driverId: string; priceVnd: number; note?: string }) => {
+    const ok = await patch("approve", values);
+    if (ok) approveForm.resetFields();
+  };
+
+  const onReject = () => {
+    let reason = "";
+    Modal.confirm({
+      title: "拒绝订单",
+      content: (
+        <Input.TextArea
+          rows={3}
+          placeholder="请填写拒绝理由（客户可见）"
+          onChange={(e) => {
+            reason = e.target.value;
+          }}
+        />
+      ),
+      okText: "确认拒绝",
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        if (!reason.trim()) {
+          message.error("拒绝必须填写理由");
+          return Promise.reject();
+        }
+        return patch("reject", { reason: reason.trim() });
+      },
+    });
+  };
+
   if (!order) {
     return (
       <AdminShell>
@@ -120,44 +152,17 @@ export default function AdminOrderDetailPage() {
 
   return (
     <AdminShell>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <Typography.Title level={3} style={{ margin: 0 }}>
-          {order.orderNo}
-        </Typography.Title>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, gap: 12, flexWrap: "wrap" }}>
+        <Space wrap>
+          <BackButton href="/admin/orders" />
+          <Typography.Title level={3} style={{ margin: 0 }}>
+            {order.orderNo}
+          </Typography.Title>
+        </Space>
         <Space wrap>
           <Button type="primary" icon={<CopyOutlined />} onClick={copyNotify}>
             {t("action.copy_notify", "复制通知消息")}
           </Button>
-          {order.status === "PENDING_REVIEW" && (
-            <>
-              <Button type="primary" loading={loading} onClick={() => patch("approve")}>
-                {t("action.approve", "审核通过")}
-              </Button>
-              <Button
-                danger
-                loading={loading}
-                onClick={() => {
-                  Modal.confirm({
-                    title: "拒绝订单",
-                    content: (
-                      <Input.TextArea
-                        id="reject-reason"
-                        rows={3}
-                        placeholder="拒绝原因"
-                        defaultValue="信息不完整"
-                      />
-                    ),
-                    onOk: () => {
-                      const el = document.getElementById("reject-reason") as HTMLTextAreaElement | null;
-                      return patch("reject", { reason: el?.value || "审核拒绝" });
-                    },
-                  });
-                }}
-              >
-                {t("action.reject", "拒绝")}
-              </Button>
-            </>
-          )}
           {order.status === "MATCHED" && (
             <Button loading={loading} onClick={() => patch("set_status", { status: "IN_TRANSIT" })}>
               标记运输中
@@ -200,44 +205,53 @@ export default function AdminOrderDetailPage() {
             {order.cargoName} · {order.cargoWeightKg}kg · {order.cargoVolumeM3}m³
           </Descriptions.Item>
           <Descriptions.Item label="成交司机" span={2}>
-            {order.matchedDriver ? `${order.matchedDriver.name} / ${order.matchedDriver.phone}` : "-"}
+            {order.matchedDriver
+              ? `${order.matchedDriver.name} / ${order.matchedDriver.plateNumber || "-"} / ${order.matchedDriver.phone}`
+              : "-"}
           </Descriptions.Item>
+          {order.rejectReason ? (
+            <Descriptions.Item label="拒绝原因" span={2}>
+              {order.rejectReason}
+            </Descriptions.Item>
+          ) : null}
         </Descriptions>
       </Card>
 
-      {(order.status === "BIDDING" || order.status === "MATCHED") && (
-        <Card title="录入司机报价（线下代录）" style={{ marginBottom: 16 }}>
-          <Form
-            form={bidForm}
-            layout="inline"
-            onFinish={async (values) => {
-              await patch("add_bid", values);
-              bidForm.resetFields();
-            }}
-          >
-            <Form.Item name="driverId" rules={[{ required: true, message: "选择司机" }]}>
+      {order.status === "PENDING_REVIEW" && (
+        <Card title="审核通过（必须先录入司机价格）" style={{ marginBottom: 16 }}>
+          <Typography.Paragraph type="secondary">
+            通过前必须选择司机并填写司机价格；拒绝必须填写理由（客户可见）。
+          </Typography.Paragraph>
+          <Form form={approveForm} layout="inline" onFinish={onApprove} style={{ rowGap: 12 }}>
+            <Form.Item name="driverId" rules={[{ required: true, message: "请选择司机" }]}>
               <Select
-                style={{ width: 260 }}
+                style={{ width: 280 }}
                 placeholder="选择司机"
                 options={drivers.map((d) => ({
                   value: d.id,
-                  label: `${d.name} (${d.phone}) · ${vehicleLabel(d.vehicleType, t)}`,
+                  label: `${d.name} (${d.plateNumber || "无车牌"}) · ${vehicleLabel(d.vehicleType, t)}`,
                 }))}
               />
             </Form.Item>
-            <Form.Item name="priceVnd" rules={[{ required: true, message: "输入报价" }]}>
-              <InputNumber min={0} placeholder="报价 VND" style={{ width: 180 }} />
+            <Form.Item name="priceVnd" rules={[{ required: true, message: "请录入司机价格" }]}>
+              <InputNumber min={1} placeholder="司机价格 VND" style={{ width: 180 }} />
             </Form.Item>
             <Form.Item name="note">
-              <Input placeholder="备注" style={{ width: 160 }} />
+              <Input placeholder="备注（可选）" style={{ width: 160 }} />
             </Form.Item>
             <Button type="primary" htmlType="submit" loading={loading}>
-              保存报价
+              {t("action.approve", "通过并成交")}
+            </Button>
+            <Button danger loading={loading} onClick={onReject}>
+              {t("action.reject", "拒绝")}
             </Button>
           </Form>
+        </Card>
+      )}
 
+      {(order.status === "BIDDING" || order.status === "MATCHED") && (
+        <Card title="报价记录" style={{ marginBottom: 16 }}>
           <Table
-            style={{ marginTop: 16 }}
             rowKey="id"
             dataSource={order.bids}
             pagination={false}
@@ -253,21 +267,12 @@ export default function AdminOrderDetailPage() {
                 render: (_, r) => formatVnd(Number(r.priceVnd) - Math.round(Number(r.priceVnd) * 0.15)),
               },
               { title: "备注", dataIndex: "note", render: (v) => v || "-" },
-              {
-                title: "操作",
-                render: (_, r) =>
-                  order.status === "BIDDING" ? (
-                    <Button size="small" type="link" onClick={() => patch("match", { driverId: r.driverId })}>
-                      设为成交
-                    </Button>
-                  ) : null,
-              },
             ]}
           />
         </Card>
       )}
 
-      <Card title="司机通知预览（复制后发 Zalo/WhatsApp）">
+      <Card title="司机通知预览">
         <pre
           style={{
             whiteSpace: "pre-wrap",

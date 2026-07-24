@@ -5,7 +5,7 @@ const bcrypt = require("bcryptjs");
 const prisma = new PrismaClient();
 
 const translations = [
-  { key: "app.name", zh: "ynhll 越南散货车", vi: "ynhll Vận tải Việt Nam", groupName: "common" },
+  { key: "app.name", zh: "ANTS 越南散货车", vi: "ANTS Vận tải Việt Nam", groupName: "common" },
   { key: "action.login", zh: "登录", vi: "Đăng nhập", groupName: "common" },
   { key: "action.logout", zh: "退出登录", vi: "Đăng xuất", groupName: "common" },
   { key: "action.register", zh: "注册", vi: "Đăng ký", groupName: "common" },

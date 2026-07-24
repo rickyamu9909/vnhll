@@ -1,4 +1,4 @@
-# ynhll 越南散货车平台 · MVP
+# ANTS 越南散货车平台 · MVP
 
 企业散货下单 + 管理端撮合派单（司机端暂不做）。部署目标：Railway。
 
@@ -40,9 +40,7 @@ npm run dev
    - `JWT_SECRET`（随机长字符串）
    - `ADMIN_HOTLINE`（调度热线，写入司机通知模板）
 4. Build：`npm install && npx prisma generate && npm run build`
-5. Start：`npx prisma db push && npx tsx prisma/seed.ts && npm run start`
-
-或使用仓库内 `railway.json` / `Dockerfile`。
+5. Start：见 `docker-entrypoint.sh` / `railway.json`
 
 ## 司机通知模板
 

@@ -33,13 +33,13 @@ export default function HomePage() {
       <div className="hero-panel" style={{ padding: "48px 24px 80px" }}>
         <div style={{ maxWidth: 960, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <Typography.Title level={2} style={{ color: "#fff", margin: 0 }}>
-            {t("app.name", "ynhll 越南散货车")}
+            {t("app.name", "ANTS 越南散货车")}
           </Typography.Title>
           <LocaleSwitch />
         </div>
         <div style={{ maxWidth: 960, margin: "32px auto 0" }}>
           <Typography.Title level={1} style={{ color: "#fff", marginBottom: 8 }}>
-            ynhll
+            ANTS
           </Typography.Title>
           <Typography.Paragraph style={{ color: "rgba(255,255,255,0.85)", fontSize: 16, maxWidth: 520 }}>
             企业散货下单 · 管理端撮合派单 · MVP

@@ -12,21 +12,24 @@ export async function GET() {
 
   const orders = await prisma.order.findMany({
     where: { customerId: user!.id },
+    include: {
+      matchedDriver: { select: { name: true, plateNumber: true } },
+    },
     orderBy: { createdAt: "desc" },
   });
 
-  // 客户不可见成交价/佣金/司机实得
+  const showDriver = new Set(["MATCHED", "IN_TRANSIT", "DELIVERED", "COMPLETED"]);
+
   const data = orders.map((o) => {
-    const { dealPriceVnd, platformFeeVnd, driverIncomeVnd, matchedDriverId, ...rest } = o;
+    const { dealPriceVnd, platformFeeVnd, driverIncomeVnd, matchedDriver, ...rest } = o;
     void dealPriceVnd;
     void platformFeeVnd;
     void driverIncomeVnd;
-    void matchedDriverId;
     return serializeMoney({
       ...rest,
-      matchedDriverId: o.status === OrderStatus.PENDING_REVIEW || o.status === OrderStatus.BIDDING || o.status === OrderStatus.REJECTED
-        ? null
-        : matchedDriverId,
+      matchedDriver: showDriver.has(o.status) && matchedDriver
+        ? { name: matchedDriver.name, plateNumber: matchedDriver.plateNumber }
+        : null,
     });
   });
 

@@ -21,7 +21,7 @@ export function CustomerShell({ children, selected }: { children: React.ReactNod
   return (
     <Layout className="page-shell" style={{ background: "transparent" }}>
       <Header style={{ background: "#083d30", display: "flex", alignItems: "center", gap: 16 }}>
-        <Typography.Text style={{ color: "#fff", fontWeight: 700, fontSize: 18 }}>ynhll</Typography.Text>
+        <Typography.Text style={{ color: "#fff", fontWeight: 700, fontSize: 18 }}>ANTS</Typography.Text>
         <Menu
           theme="dark"
           mode="horizontal"

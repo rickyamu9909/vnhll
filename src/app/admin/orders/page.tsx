@@ -49,6 +49,13 @@ export default function AdminOrdersPage() {
           rowKey="id"
           loading={loading}
           dataSource={rows}
+          scroll={{ x: 1000 }}
+          pagination={{
+            pageSize: 15,
+            showSizeChanger: true,
+            pageSizeOptions: ["15", "25", "50", "100", "500"],
+            showTotal: (total) => `共 ${total} 条`,
+          }}
           columns={[
             { title: "订单号", dataIndex: "orderNo" },
             {
