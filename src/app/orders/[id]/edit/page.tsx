@@ -43,8 +43,8 @@ export default function EditOrderPage() {
         message.error(res.message || "加载失败");
         return;
       }
-      if (res.data.status !== "PENDING_REVIEW") {
-        message.warning("仅待审核订单可修改");
+      if (res.data.status !== "PENDING_REVIEW" && res.data.status !== "REJECTED") {
+        message.warning("仅待审核或已拒绝订单可修改");
         router.replace(`/orders/${id}`);
         return;
       }
