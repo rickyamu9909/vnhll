@@ -119,7 +119,8 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   if (!order) return jsonFail("订单不存在", 404);
 
   if (action === "cancel") {
-    if (![OrderStatus.PENDING_REVIEW, OrderStatus.BIDDING].includes(order.status)) {
+    const cancellable: OrderStatus[] = [OrderStatus.PENDING_REVIEW, OrderStatus.BIDDING];
+    if (!cancellable.includes(order.status)) {
       return jsonFail("当前状态不可取消");
     }
     const updated = await prisma.order.update({
