@@ -1,0 +1,187 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  CUSTOMER
+}
+
+enum UserStatus {
+  PENDING
+  ACTIVE
+  REJECTED
+  DISABLED
+}
+
+enum DriverStatus {
+  PENDING
+  ACTIVE
+  REJECTED
+  DISABLED
+}
+
+enum VehicleType {
+  TON_1_5
+  TON_3_5
+  TON_7
+  TON_10
+  OTHER
+}
+
+enum OrderStatus {
+  PENDING_REVIEW
+  BIDDING
+  MATCHED
+  IN_TRANSIT
+  DELIVERED
+  COMPLETED
+  CANCELLED
+  REJECTED
+}
+
+model User {
+  id           String     @id @default(cuid())
+  username     String     @unique
+  passwordHash String
+  role         UserRole
+  status       UserStatus @default(PENDING)
+  displayName  String?
+  phone        String?
+  email        String?
+  rejectReason String?
+  locale       String     @default("zh")
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  company Company?
+  orders  Order[]  @relation("CustomerOrders")
+
+  @@index([role, status])
+}
+
+model Company {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  companyName   String
+  taxCode       String?
+  contactName   String?
+  contactPhone  String?
+  address       String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Driver {
+  id            String       @id @default(cuid())
+  name          String
+  phone         String
+  vehicleType   VehicleType
+  plateNumber   String?
+  idNumber      String?
+  notes         String?
+  status        DriverStatus @default(PENDING)
+  rejectReason  String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  bids          OrderBid[]
+  matchedOrders Order[]      @relation("MatchedDriver")
+
+  @@index([status])
+  @@index([phone])
+}
+
+model Order {
+  id                String      @id @default(cuid())
+  orderNo           String      @unique
+  customerId        String
+  status            OrderStatus @default(PENDING_REVIEW)
+
+  pickupAddress     String
+  pickupContact     String
+  pickupPhone       String
+  pickupNote        String?
+  pickupAt          DateTime
+
+  deliveryAddress   String
+  deliveryContact   String
+  deliveryPhone     String
+
+  cargoName         String
+  cargoWeightKg     Float
+  cargoVolumeM3     Float
+  vehicleType       VehicleType
+
+  customerBidVnd    BigInt
+  bidDeadline       DateTime?
+
+  matchedDriverId   String?
+  dealPriceVnd      BigInt?
+  platformFeeVnd    BigInt?
+  driverIncomeVnd   BigInt?
+
+  adminNote         String?
+  rejectReason      String?
+  notifyNote        String?
+
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  customer      User           @relation("CustomerOrders", fields: [customerId], references: [id])
+  matchedDriver Driver?        @relation("MatchedDriver", fields: [matchedDriverId], references: [id])
+  bids          OrderBid[]
+  statusLogs    OrderStatusLog[]
+
+  @@index([customerId, status])
+  @@index([status, createdAt])
+}
+
+model OrderBid {
+  id          String   @id @default(cuid())
+  orderId     String
+  driverId    String
+  priceVnd    BigInt
+  note        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  order  Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  driver Driver @relation(fields: [driverId], references: [id])
+
+  @@unique([orderId, driverId])
+  @@index([orderId])
+}
+
+model OrderStatusLog {
+  id         String       @id @default(cuid())
+  orderId    String
+  fromStatus OrderStatus?
+  toStatus   OrderStatus
+  note       String?
+  operatorId String?
+  createdAt  DateTime     @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, createdAt])
+}
+
+model Translation {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  zh        String
+  vi        String
+  groupName String   @default("common")
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@index([groupName])
+}
