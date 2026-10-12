@@ -4,6 +4,7 @@ import { getSession, requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { jsonFail, jsonOk } from "@/lib/api";
 import { calcCommission, serializeMoney, toBigIntMoney } from "@/lib/money";
+import { advanceOrder, auditOrder } from "@/lib/market";
 import { buildDriverNotifyMessage } from "@/lib/notify";
 import { ORDER_STATUS_FLOW } from "@/lib/order";
 
@@ -19,6 +20,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
       customer: { include: { company: true } },
       matchedDriver: true,
       bids: { include: { driver: true }, orderBy: { createdAt: "asc" } },
+      carrierBids: { include: { bidder: { select: { username: true, displayName: true } } } },
       statusLogs: { orderBy: { createdAt: "desc" } },
     },
   });
@@ -29,11 +31,15 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
 
   return jsonOk({
     ...serializeMoney(order as unknown as Record<string, unknown>),
-    customerBidVnd: order.customerBidVnd.toString(),
+    customerBidVnd: order.customerBidVnd?.toString() ?? null,
     dealPriceVnd: order.dealPriceVnd?.toString() ?? null,
     platformFeeVnd: order.platformFeeVnd?.toString() ?? null,
     driverIncomeVnd: order.driverIncomeVnd?.toString() ?? null,
     bids: order.bids.map((b) => ({ ...b, priceVnd: b.priceVnd.toString() })),
+    carrierBids: order.carrierBids.map((b) => ({
+      ...b,
+      priceVnd: b.priceVnd.toString(),
+    })),
     notifyText,
   });
 }
@@ -49,6 +55,24 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   if (!order) return jsonFail("订单不存在", 404);
 
   /** 通过：必须同时录入司机 + 司机价格，直接成交 */
+  if (action === "audit") {
+    try {
+      const updated = await auditOrder(order.id, user!.id, Boolean(body.pass), body.reason ? String(body.reason) : "");
+      return jsonOk(serializeMoney(updated as unknown as Record<string, unknown>));
+    } catch (e) {
+      return jsonFail((e as Error).message);
+    }
+  }
+
+  if (action === "advance") {
+    try {
+      const updated = await advanceOrder(order.id, user!.id, true);
+      return jsonOk(serializeMoney(updated as unknown as Record<string, unknown>));
+    } catch (e) {
+      return jsonFail((e as Error).message);
+    }
+  }
+
   if (action === "approve") {
     if (order.status !== OrderStatus.PENDING_REVIEW) return jsonFail("当前状态不可审核");
     const driverId = String(body.driverId || "");

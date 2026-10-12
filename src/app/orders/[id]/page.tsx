@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Button, Card, Descriptions, Modal, Space, Tag, Typography, message } from "antd";
+import { Button, Card, Descriptions, Modal, Space, Table, Tag, Typography, message } from "antd";
 import dayjs from "dayjs";
 import { CustomerShell } from "@/components/CustomerShell";
 import { BackButton } from "@/components/BackButton";
@@ -29,6 +29,12 @@ type OrderDetail = {
   vehicleType: string;
   customerBidVnd: string;
   rejectReason?: string | null;
+  matchPath?: string | null;
+  targetPriceVnd?: string | null;
+  dealPriceVnd?: string | null;
+  driverName?: string | null;
+  plateNumber?: string | null;
+  carrierBids?: Array<{ id: string; priceVnd: string; bidderName: string }>;
   matchedDriver?: { name: string; plateNumber?: string | null } | null;
 };
 
@@ -105,14 +111,46 @@ export default function OrderDetailPage() {
       <Card
         extra={
           <Space wrap>
-            {order.status === "PENDING_REVIEW" || order.status === "REJECTED" ? (
+            {["PENDING_REVIEW", "REJECTED", "OPEN", "FAILED"].includes(order.status) ? (
               <Link href={`/orders/${id}/edit`}>
                 <Button>{t("action.edit", "修改")}</Button>
               </Link>
             ) : null}
-            {(order.status === "PENDING_REVIEW" || order.status === "BIDDING" || order.status === "REJECTED") && (
+            {["PENDING_REVIEW", "BIDDING", "REJECTED", "OPEN", "PENDING_CONFIRM", "FAILED"].includes(order.status) && (
               <Button danger loading={loading} onClick={cancelOrder}>
                 {t("action.cancel", "取消订单")}
+              </Button>
+            )}
+            {order.status === "OPEN" && (
+              <Button
+                loading={loading}
+                onClick={async () => {
+                  setLoading(true);
+                  const res = await apiFetch(`/api/orders/${id}`, { method: "POST", body: JSON.stringify({ action: "extend" }) });
+                  setLoading(false);
+                  if (!res.ok) message.error(res.message || "延长失败");
+                  else {
+                    message.success("已延长");
+                    load();
+                  }
+                }}
+              >
+                延长有效期
+              </Button>
+            )}
+            {order.status === "PENDING_CONFIRM" && (
+              <Button
+                danger
+                onClick={async () => {
+                  const res = await apiFetch(`/api/orders/${id}`, { method: "POST", body: JSON.stringify({ action: "reject_all" }) });
+                  if (!res.ok) message.error(res.message || "操作失败");
+                  else {
+                    message.success("已拒绝并重新发布");
+                    load();
+                  }
+                }}
+              >
+                拒绝全部报价
               </Button>
             )}
             {order.status === "DELIVERED" && (
@@ -127,13 +165,17 @@ export default function OrderDetailPage() {
           <Descriptions.Item label={t("order.status", "状态")}>
             <Tag>{statusLabel(order.status, t)}</Tag>
           </Descriptions.Item>
+          <Descriptions.Item label="匹配路径">{order.matchPath || "-"}</Descriptions.Item>
           <Descriptions.Item label={t("order.customer_bid", "您的出价")}>
-            {formatVnd(order.customerBidVnd)} VND
+            {order.targetPriceVnd || order.customerBidVnd ? `${formatVnd(order.targetPriceVnd || order.customerBidVnd)} VND` : "未出价（询价）"}
           </Descriptions.Item>
-          {order.matchedDriver ? (
+          {order.dealPriceVnd ? (
+            <Descriptions.Item label="成交价">{formatVnd(order.dealPriceVnd)} VND</Descriptions.Item>
+          ) : null}
+          {order.driverName ? (
             <>
-              <Descriptions.Item label="司机姓名">{order.matchedDriver.name}</Descriptions.Item>
-              <Descriptions.Item label="车牌号">{order.matchedDriver.plateNumber || "-"}</Descriptions.Item>
+              <Descriptions.Item label="司机姓名">{order.driverName}</Descriptions.Item>
+              <Descriptions.Item label="车牌号">{order.plateNumber || "-"}</Descriptions.Item>
             </>
           ) : null}
           <Descriptions.Item label={t("order.pickup_at", "预约接货时间")}>
@@ -149,12 +191,46 @@ export default function OrderDetailPage() {
           <Descriptions.Item label={t("order.cargo_name", "货物")}>
             {order.cargoName} · {order.cargoWeightKg}kg · {order.cargoVolumeM3}m³ · {vehicleLabel(order.vehicleType, t)}
           </Descriptions.Item>
-          {order.status === "REJECTED" && order.rejectReason ? (
+          {order.rejectReason ? (
             <Descriptions.Item label="拒绝原因">
               <Typography.Text type="danger">{order.rejectReason}</Typography.Text>
             </Descriptions.Item>
           ) : null}
         </Descriptions>
+        {order.carrierBids && order.carrierBids.length > 0 ? (
+          <Table
+            style={{ marginTop: 16 }}
+            rowKey="id"
+            pagination={false}
+            dataSource={order.carrierBids}
+            columns={[
+              { title: "报价方", dataIndex: "bidderName" },
+              { title: "报价 VND", dataIndex: "priceVnd", render: (v) => formatVnd(v) },
+              {
+                title: "操作",
+                render: (_, row) =>
+                  order.status === "PENDING_CONFIRM" ? (
+                    <Button
+                      type="link"
+                      onClick={async () => {
+                        const res = await apiFetch(`/api/orders/${id}`, {
+                          method: "POST",
+                          body: JSON.stringify({ action: "confirm_bid", bidId: row.id }),
+                        });
+                        if (!res.ok) message.error(res.message || "确认失败");
+                        else {
+                          message.success("已确认，等待平台审核");
+                          load();
+                        }
+                      }}
+                    >
+                      同意该报价
+                    </Button>
+                  ) : null,
+              },
+            ]}
+          />
+        ) : null}
       </Card>
     </CustomerShell>
   );

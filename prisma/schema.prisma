@@ -10,6 +10,8 @@ datasource db {
 enum UserRole {
   ADMIN
   CUSTOMER
+  CARRIER_MAIN
+  CARRIER_SUB
 }
 
 enum UserStatus {
@@ -43,6 +45,46 @@ enum OrderStatus {
   COMPLETED
   CANCELLED
   REJECTED
+  OPEN
+  LOCKED
+  PENDING_CONFIRM
+  PENDING_AUDIT
+  PENDING_EXECUTION
+  FAILED
+}
+
+enum MatchPath {
+  A
+  B
+  C
+}
+
+enum CargoType {
+  GENERAL
+  DANGEROUS
+  OTHER
+}
+
+enum PackagingType {
+  CARTON
+  WOOD
+  PALLET
+  NAKED
+  BAG
+  OTHER
+}
+
+enum NegotiationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+enum CapacityStatus {
+  OPEN
+  MATCHED
+  CLOSED
 }
 
 model User {
@@ -56,13 +98,27 @@ model User {
   email        String?
   rejectReason String?
   locale       String     @default("zh")
+  carrierKind  String?
+  parentUserId String?
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
-  company Company?
-  orders  Order[]  @relation("CustomerOrders")
+  company       Company?
+  carrierProfile CarrierProfile?
+  parent        User?  @relation("CarrierTeam", fields: [parentUserId], references: [id])
+  children      User[] @relation("CarrierTeam")
+  orders        Order[]  @relation("CustomerOrders")
+  acceptedOrders Order[] @relation("AcceptedBy")
+  assignedOrders Order[] @relation("AssignedTo")
+  carrierBids   CarrierBid[]
+  vehicles      Vehicle[] @relation("VehicleOwner")
+  capacities    Capacity[]
+  negotiations  CapacityNegotiation[]
+  notifications Notification[]
 
   @@index([role, status])
+  @@index([phone])
+  @@index([parentUserId])
 }
 
 model Company {
@@ -118,12 +174,34 @@ model Order {
   cargoName         String
   cargoWeightKg     Float
   cargoVolumeM3     Float
-  vehicleType       VehicleType
+  vehicleType       VehicleType?
+  matchPath         MatchPath?
+  cargoType         CargoType?
+  packaging         PackagingType?
+  originProvince    String?
+  originCity        String?
+  originAddress     String?
+  destProvince      String?
+  destCity          String?
+  destAddress       String?
+  weightTons        Float?
+  etaAt             DateTime?
+  targetPriceVnd    BigInt?
+  abnormalNote      String?
+  commissionBps     Int?
+  waitDeadline      DateTime?
+  confirmDeadline   DateTime?
+  auditDeadline     DateTime?
+  extendCount       Int         @default(0)
+  publishRound      Int         @default(1)
 
-  customerBidVnd    BigInt
+  customerBidVnd    BigInt?
   bidDeadline       DateTime?
 
   matchedDriverId   String?
+  acceptedByUserId  String?
+  assignedToUserId  String?
+  capacityId        String?
   dealPriceVnd      BigInt?
   platformFeeVnd    BigInt?
   driverIncomeVnd   BigInt?
@@ -137,7 +215,11 @@ model Order {
 
   customer      User           @relation("CustomerOrders", fields: [customerId], references: [id])
   matchedDriver Driver?        @relation("MatchedDriver", fields: [matchedDriverId], references: [id])
+  acceptedBy    User?          @relation("AcceptedBy", fields: [acceptedByUserId], references: [id])
+  assignedTo    User?          @relation("AssignedTo", fields: [assignedToUserId], references: [id])
   bids          OrderBid[]
+  carrierBids   CarrierBid[]
+  cargoItems    OrderCargoItem[]
   statusLogs    OrderStatusLog[]
 
   @@index([customerId, status])
@@ -172,6 +254,158 @@ model OrderStatusLog {
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@index([orderId, createdAt])
+}
+
+model OrderCargoItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  lengthCm  Float
+  widthCm   Float
+  heightCm  Float
+  quantity  Int
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model CarrierBid {
+  id           String   @id @default(cuid())
+  orderId      String
+  publishRound Int
+  bidderUserId String
+  priceVnd     BigInt
+  createdAt    DateTime @default(now())
+
+  order  Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  bidder User  @relation(fields: [bidderUserId], references: [id])
+
+  @@unique([orderId, publishRound, bidderUserId])
+  @@index([orderId])
+}
+
+model CarrierProfile {
+  id              String  @id @default(cuid())
+  userId          String  @unique
+  companyName     String?
+  address         String?
+  licenseNo       String?
+  contactName     String?
+  contactPhone    String?
+  idNumber        String?
+  driverLicense   String?
+  vehicleLicense  String?
+  insuranceNote   String?
+  photoUrls       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Vehicle {
+  id             String      @id @default(cuid())
+  ownerUserId    String
+  plateNumber    String
+  vehicleType    VehicleType
+  loadTons       Float
+  assignedUserId String?
+  notes          String?
+  createdAt      DateTime    @default(now())
+  owner          User        @relation("VehicleOwner", fields: [ownerUserId], references: [id])
+
+  @@index([ownerUserId])
+}
+
+model Capacity {
+  id               String         @id @default(cuid())
+  publisherUserId  String
+  location         String
+  availableFrom    DateTime
+  availableTo      DateTime
+  destPreference   String?
+  vehicleType      VehicleType
+  loadTons         Float
+  cargoTypes       String
+  airportOk        Boolean
+  portOk           Boolean
+  expectedPriceVnd BigInt
+  note             String?
+  status           CapacityStatus @default(OPEN)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  publisher     User                   @relation(fields: [publisherUserId], references: [id])
+  negotiations  CapacityNegotiation[]
+
+  @@index([status])
+}
+
+model CapacityNegotiation {
+  id              String             @id @default(cuid())
+  capacityId      String
+  customerId      String
+  priceVnd        BigInt
+  status          NegotiationStatus  @default(PENDING)
+  originProvince  String
+  originCity      String
+  originAddress   String
+  originContact   String
+  originPhone     String
+  destProvince    String
+  destCity        String
+  destAddress     String
+  destContact     String
+  destPhone       String
+  cargoType       CargoType
+  packaging       PackagingType
+  weightTons      Float
+  pickupAt        DateTime
+  etaAt           DateTime
+  note            String?
+  respondDeadline DateTime?
+  orderId         String?
+  createdAt       DateTime           @default(now())
+
+  capacity Capacity @relation(fields: [capacityId], references: [id], onDelete: Cascade)
+  customer User     @relation(fields: [customerId], references: [id])
+
+  @@index([capacityId])
+  @@index([customerId])
+}
+
+model SystemConfig {
+  id                 String   @id @default("default")
+  commissionBps      Int      @default(2000)
+  confirmTimerStart  String   @default("AFTER_BID_DEADLINE")
+  confirmMinutes     Int      @default(30)
+  waitMatchHours     Int      @default(24)
+  extendHours        Int      @default(24)
+  maxExtends         Int      @default(1)
+  auditMinutes       Int      @default(30)
+  bidLeadHours       Int      @default(4)
+  negotiateMinutes   Int      @default(30)
+  updatedAt          DateTime @updatedAt
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  body      String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+}
+
+model OperationLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  action     String
+  targetType String
+  targetId   String?
+  note       String?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
 }
 
 model Translation {

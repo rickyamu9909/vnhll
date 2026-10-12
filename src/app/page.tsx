@@ -63,6 +63,7 @@ export default function HomePage() {
           <Space style={{ marginTop: 16 }} split="|">
             <Link href="/register">{t("action.register", "注册")}</Link>
             <Link href="/admin/login">管理端</Link>
+            <Link href="/driver/login">司机端</Link>
           </Space>
         </Card>
       </div>

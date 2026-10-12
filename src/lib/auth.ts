@@ -7,6 +7,7 @@ import {
   verifyToken,
   requireAdmin,
   requireCustomer,
+  requireCarrier,
 } from "./session";
 
 export async function setAuthCookie(token: string) {
@@ -47,5 +48,6 @@ export {
   verifyToken,
   requireAdmin,
   requireCustomer,
+  requireCarrier,
 };
 export type { SessionUser };

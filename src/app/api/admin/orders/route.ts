@@ -1,14 +1,15 @@
 import { NextRequest } from "next/server";
-import { OrderStatus, UserRole, UserStatus, VehicleType } from "@prisma/client";
+import { OrderStatus, UserRole, UserStatus } from "@prisma/client";
 import { getSession, requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { jsonFail, jsonOk } from "@/lib/api";
-import { genOrderNo } from "@/lib/order";
-import { serializeMoney, toBigIntMoney } from "@/lib/money";
+import { serializeMoney } from "@/lib/money";
+import { createPublishedOrder, sweepDeadlines } from "@/lib/market";
 
 export async function GET(req: NextRequest) {
   const user = await getSession();
   if (!requireAdmin(user)) return jsonFail("未登录或无权限", 401);
+  await sweepDeadlines();
 
   const status = req.nextUrl.searchParams.get("status") as OrderStatus | null;
   const orders = await prisma.order.findMany({
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest) {
   return jsonOk(
     orders.map((o) => ({
       ...serializeMoney(o as unknown as Record<string, unknown>),
-      customerBidVnd: o.customerBidVnd.toString(),
+      customerBidVnd: o.customerBidVnd?.toString() ?? null,
       dealPriceVnd: o.dealPriceVnd?.toString() ?? null,
       platformFeeVnd: o.platformFeeVnd?.toString() ?? null,
       driverIncomeVnd: o.driverIncomeVnd?.toString() ?? null,
@@ -51,43 +52,9 @@ export async function POST(req: NextRequest) {
   if (!customer) return jsonFail("客户不存在或未激活");
 
   try {
-    const order = await prisma.order.create({
-      data: {
-        orderNo: genOrderNo(),
-        customerId: customer.id,
-        status: OrderStatus.PENDING_REVIEW,
-        pickupAddress: String(body.pickupAddress || "").trim(),
-        pickupContact: String(body.pickupContact || "").trim(),
-        pickupPhone: String(body.pickupPhone || "").trim(),
-        pickupNote: body.pickupNote ? String(body.pickupNote) : null,
-        pickupAt: new Date(body.pickupAt),
-        deliveryAddress: String(body.deliveryAddress || "").trim(),
-        deliveryContact: String(body.deliveryContact || "").trim(),
-        deliveryPhone: String(body.deliveryPhone || "").trim(),
-        cargoName: String(body.cargoName || "").trim(),
-        cargoWeightKg: Number(body.cargoWeightKg),
-        cargoVolumeM3: Number(body.cargoVolumeM3),
-        vehicleType: body.vehicleType as VehicleType,
-        customerBidVnd: toBigIntMoney(body.customerBidVnd),
-        bidDeadline: body.bidDeadline ? new Date(body.bidDeadline) : null,
-        statusLogs: {
-          create: {
-            fromStatus: null,
-            toStatus: OrderStatus.PENDING_REVIEW,
-            note: `管理员代客建单（客户：${customer.username}）`,
-            operatorId: user!.id,
-          },
-        },
-      },
-    });
-
-    const { dealPriceVnd, platformFeeVnd, driverIncomeVnd, ...safe } = order;
-    void dealPriceVnd;
-    void platformFeeVnd;
-    void driverIncomeVnd;
-    return jsonOk(serializeMoney(safe));
+    const order = await createPublishedOrder(customer.id, body, user!.id, `管理员代客建单（${customer.username}）`);
+    return jsonOk(serializeMoney(order as unknown as Record<string, unknown>));
   } catch (e) {
-    console.error(e);
-    return jsonFail("创建订单失败，请检查字段");
+    return jsonFail((e as Error).message || "创建订单失败，请检查字段");
   }
 }

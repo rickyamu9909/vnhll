@@ -12,7 +12,9 @@ export async function POST(req: NextRequest) {
 
   if (!username || !password) return jsonFail("用户名或密码不能为空");
 
-  const user = await prisma.user.findUnique({ where: { username } });
+  const user = await prisma.user.findFirst({
+    where: { OR: [{ username }, { phone: username }] },
+  });
   if (!user) return jsonFail("账号或密码错误", 401);
 
   const ok = await bcrypt.compare(password, user.passwordHash);
@@ -42,6 +44,6 @@ export async function POST(req: NextRequest) {
 
   return jsonOk({
     ...session,
-    redirectTo: user.role === "ADMIN" ? "/admin" : "/orders",
+    redirectTo: user.role === "ADMIN" ? "/admin" : user.role === "CUSTOMER" ? "/orders" : "/driver",
   });
 }

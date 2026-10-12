@@ -20,8 +20,8 @@ type OrderRow = {
 };
 
 const PAGE_SIZES = [15, 25, 50, 100, 500];
-const EDITABLE = new Set(["PENDING_REVIEW", "REJECTED"]);
-const CANCELABLE = new Set(["PENDING_REVIEW", "BIDDING", "REJECTED"]);
+const EDITABLE = new Set(["PENDING_REVIEW", "REJECTED", "OPEN", "FAILED"]);
+const CANCELABLE = new Set(["PENDING_REVIEW", "BIDDING", "REJECTED", "OPEN", "PENDING_CONFIRM", "FAILED"]);
 
 export default function OrdersPage() {
   const { t } = useI18n();

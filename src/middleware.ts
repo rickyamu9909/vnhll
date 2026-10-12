@@ -9,8 +9,15 @@ export async function middleware(req: NextRequest) {
 
   const isAdminPath = pathname.startsWith("/admin");
   const isCustomerApp = pathname.startsWith("/orders");
+  const isDriverApp = pathname.startsWith("/driver");
 
-  if (pathname === "/admin/login" || pathname === "/login" || pathname === "/register") {
+  if (
+    pathname === "/admin/login" ||
+    pathname === "/login" ||
+    pathname === "/register" ||
+    pathname === "/driver/login" ||
+    pathname === "/driver/register"
+  ) {
     return NextResponse.next();
   }
 
@@ -26,9 +33,15 @@ export async function middleware(req: NextRequest) {
     }
   }
 
+  if (isDriverApp) {
+    if (!user || (user.role !== "CARRIER_MAIN" && user.role !== "CARRIER_SUB")) {
+      return NextResponse.redirect(new URL("/driver/login", req.url));
+    }
+  }
+
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/orders/:path*", "/orders"],
+  matcher: ["/admin/:path*", "/orders/:path*", "/orders", "/driver/:path*", "/driver"],
 };

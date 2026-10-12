@@ -24,8 +24,21 @@ type OrderDetail = {
   cargoName: string;
   cargoWeightKg: number;
   cargoVolumeM3: number;
-  vehicleType: string;
-  customerBidVnd: string;
+  vehicleType?: string | null;
+  customerBidVnd?: string | null;
+  targetPriceVnd?: string | null;
+  originProvince?: string | null;
+  originCity?: string | null;
+  originAddress?: string | null;
+  destProvince?: string | null;
+  destCity?: string | null;
+  destAddress?: string | null;
+  cargoType?: string | null;
+  packaging?: string | null;
+  weightTons?: number | null;
+  abnormalNote?: string | null;
+  etaAt?: string;
+  cargoItems?: Array<{ lengthCm: number; widthCm: number; heightCm: number; quantity: number }>;
 };
 
 export default function EditOrderPage() {
@@ -43,15 +56,33 @@ export default function EditOrderPage() {
         message.error(res.message || "加载失败");
         return;
       }
-      if (res.data.status !== "PENDING_REVIEW" && res.data.status !== "REJECTED") {
-        message.warning("仅待审核或已拒绝订单可修改");
+      if (!["PENDING_REVIEW", "REJECTED", "OPEN", "FAILED"].includes(res.data.status)) {
+        message.warning("当前状态不可修改");
         router.replace(`/orders/${id}`);
         return;
       }
+      const price = res.data.targetPriceVnd || res.data.customerBidVnd;
       form.setFieldsValue({
-        ...res.data,
-        customerBidVnd: Number(res.data.customerBidVnd),
+        originProvince: res.data.originProvince,
+        originCity: res.data.originCity,
+        originAddress: res.data.originAddress || res.data.pickupAddress,
+        originContact: res.data.pickupContact,
+        originPhone: res.data.pickupPhone,
+        destProvince: res.data.destProvince,
+        destCity: res.data.destCity,
+        destAddress: res.data.destAddress || res.data.deliveryAddress,
+        destContact: res.data.deliveryContact,
+        destPhone: res.data.deliveryPhone,
+        cargoType: res.data.cargoType || "GENERAL",
+        packaging: res.data.packaging || "CARTON",
+        weightTons: res.data.weightTons || (res.data.cargoWeightKg ? res.data.cargoWeightKg / 1000 : undefined),
+        vehicleType: res.data.vehicleType || undefined,
+        targetPriceVnd: price ? Number(price) : undefined,
+        abnormalNote: res.data.abnormalNote,
+        note: res.data.pickupNote,
+        cargoItems: res.data.cargoItems?.length ? res.data.cargoItems : [{ quantity: 1 }],
         pickupAt: dayjs(res.data.pickupAt),
+        etaAt: res.data.etaAt ? dayjs(res.data.etaAt) : undefined,
       });
       setReady(true);
     })();
@@ -64,6 +95,7 @@ export default function EditOrderPage() {
       body: JSON.stringify({
         ...values,
         pickupAt: (values.pickupAt as dayjs.Dayjs).toISOString(),
+        etaAt: (values.etaAt as dayjs.Dayjs).toISOString(),
       }),
     });
     setLoading(false);

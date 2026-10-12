@@ -24,7 +24,13 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const selected =
     pathname.startsWith("/admin/orders")
       ? "orders"
-      : pathname.startsWith("/admin/customers")
+      : pathname.startsWith("/admin/registrations")
+        ? "registrations"
+        : pathname.startsWith("/admin/config")
+          ? "config"
+          : pathname.startsWith("/admin/logs")
+            ? "logs"
+            : pathname.startsWith("/admin/customers")
         ? "customers"
         : pathname.startsWith("/admin/drivers")
           ? "drivers"
@@ -48,6 +54,9 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           items={[
             { key: "dashboard", icon: <DashboardOutlined />, label: <Link href="/admin">{t("nav.dashboard", "工作台")}</Link> },
             { key: "orders", icon: <FileTextOutlined />, label: <Link href="/admin/orders">{t("nav.admin_orders", "订单管理")}</Link> },
+            { key: "registrations", icon: <TeamOutlined />, label: <Link href="/admin/registrations">注册审核</Link> },
+            { key: "config", icon: <DashboardOutlined />, label: <Link href="/admin/config">系统配置</Link> },
+            { key: "logs", icon: <FileTextOutlined />, label: <Link href="/admin/logs">操作日志</Link> },
             { key: "customers", icon: <TeamOutlined />, label: <Link href="/admin/customers">{t("nav.admin_customers", "客户管理")}</Link> },
             { key: "drivers", icon: <CarOutlined />, label: <Link href="/admin/drivers">{t("nav.admin_drivers", "司机管理")}</Link> },
             { key: "i18n", icon: <TranslationOutlined />, label: <Link href="/admin/i18n">{t("nav.admin_i18n", "语言包")}</Link> },
