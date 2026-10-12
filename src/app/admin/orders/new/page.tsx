@@ -42,6 +42,7 @@ export default function AdminNewOrderPage() {
       body: JSON.stringify({
         ...values,
         pickupAt: (values.pickupAt as dayjs.Dayjs).toISOString(),
+        etaAt: (values.etaAt as dayjs.Dayjs).toISOString(),
       }),
     });
     setLoading(false);
@@ -65,7 +66,7 @@ export default function AdminNewOrderPage() {
         <Typography.Paragraph type="secondary">
           选择客户账号后提交，订单将出现在该客户的「我的订单」中，效果与客户自行建单一致。
         </Typography.Paragraph>
-        <Form layout="vertical" onFinish={onFinish} initialValues={{ vehicleType: "TON_3_5", cargoWeightKg: 500, cargoVolumeM3: 2 }}>
+        <Form layout="vertical" onFinish={onFinish} initialValues={{ cargoType: "GENERAL", packaging: "CARTON", cargoItems: [{ quantity: 1 }] }}>
           <Form.Item name="customerId" label="客户账号" rules={[{ required: true, message: "请选择客户" }]}>
             <Select
               showSearch

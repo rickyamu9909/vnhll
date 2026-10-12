@@ -29,7 +29,9 @@ export function CustomerShell({ children, selected }: { children: React.ReactNod
           style={{ flex: 1, background: "transparent", minWidth: 0 }}
           items={[
             { key: "orders", label: <Link href="/orders">{t("nav.orders", "我的订单")}</Link> },
-            { key: "new", label: <Link href="/orders/new">{t("nav.new_order", "新建订单")}</Link> },
+            { key: "new", label: <Link href="/orders/new">{t("nav.new_order", "发布订单")}</Link> },
+            { key: "capacity", label: <Link href="/orders/capacity">运力大厅</Link> },
+            { key: "matches", label: <Link href="/orders/matches">我的匹配</Link> },
           ]}
         />
         <Space>

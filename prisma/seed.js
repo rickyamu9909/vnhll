@@ -48,6 +48,12 @@ const translations = [
   { key: "status.COMPLETED", zh: "已完成", vi: "Hoàn tất", groupName: "status" },
   { key: "status.CANCELLED", zh: "已取消", vi: "Đã hủy", groupName: "status" },
   { key: "status.REJECTED", zh: "已拒绝", vi: "Từ chối", groupName: "status" },
+  { key: "status.OPEN", zh: "匹配中", vi: "Đang ghép", groupName: "status" },
+  { key: "status.LOCKED", zh: "待平台审核", vi: "Chờ duyệt sàn", groupName: "status" },
+  { key: "status.PENDING_CONFIRM", zh: "待确认报价", vi: "Chờ xác nhận giá", groupName: "status" },
+  { key: "status.PENDING_AUDIT", zh: "待平台审核", vi: "Chờ duyệt sàn", groupName: "status" },
+  { key: "status.PENDING_EXECUTION", zh: "待执行", vi: "Chờ thực hiện", groupName: "status" },
+  { key: "status.FAILED", zh: "已流标", vi: "Không khớp", groupName: "status" },
   { key: "vehicle.TON_1_5", zh: "1.5吨", vi: "1.5 tấn", groupName: "vehicle" },
   { key: "vehicle.TON_3_5", zh: "3.5吨", vi: "3.5 tấn", groupName: "vehicle" },
   { key: "vehicle.TON_7", zh: "7吨", vi: "7 tấn", groupName: "vehicle" },
@@ -127,6 +133,12 @@ async function main() {
     update: {
       status: "ACTIVE",
     },
+  });
+
+  await prisma.systemConfig.upsert({
+    where: { id: "default" },
+    create: { id: "default" },
+    update: {},
   });
 
   console.log("Seed OK:", { admin: "admin", customer: customer.username });

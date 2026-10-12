@@ -2,7 +2,7 @@ import { SignJWT, jwtVerify } from "jose";
 
 export const COOKIE_NAME = "ynhll_token";
 
-export type UserRole = "ADMIN" | "CUSTOMER";
+export type UserRole = "ADMIN" | "CUSTOMER" | "CARRIER_MAIN" | "CARRIER_SUB";
 export type UserStatus = "PENDING" | "ACTIVE" | "REJECTED" | "DISABLED";
 
 export type SessionUser = {
@@ -60,4 +60,12 @@ export function requireAdmin(user: SessionUser | null) {
 
 export function requireCustomer(user: SessionUser | null) {
   return !!(user && user.role === "CUSTOMER" && user.status === "ACTIVE");
+}
+
+export function requireCarrier(user: SessionUser | null) {
+  return !!(
+    user &&
+    (user.role === "CARRIER_MAIN" || user.role === "CARRIER_SUB") &&
+    user.status === "ACTIVE"
+  );
 }

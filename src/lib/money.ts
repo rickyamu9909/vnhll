@@ -11,11 +11,14 @@ export function toBigIntMoney(value: number | string) {
   return BigInt(Math.round(n));
 }
 
-/** 平台佣金 = 司机报价 × 15%，司机实得 = 报价 - 佣金 */
-export function calcCommission(driverPriceVnd: bigint) {
-  const fee = (driverPriceVnd * BigInt(15)) / BigInt(100);
-  const income = driverPriceVnd - fee;
-  return { platformFeeVnd: fee, driverIncomeVnd: income };
+/** 佣金 = 成交价 × bps / 10000，默认 20% = 2000 bps */
+export function calcByBps(priceVnd: bigint, bps: number) {
+  const fee = (priceVnd * BigInt(bps)) / BigInt(10000);
+  return { platformFeeVnd: fee, driverIncomeVnd: priceVnd - fee };
+}
+
+export function calcCommission(driverPriceVnd: bigint, bps = 2000) {
+  return calcByBps(driverPriceVnd, bps);
 }
 
 export function serializeMoney<T extends Record<string, unknown>>(obj: T) {

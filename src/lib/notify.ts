@@ -22,7 +22,7 @@ export type NotifyOrder = {
   cargoName: string;
   cargoWeightKg: number;
   cargoVolumeM3: number;
-  vehicleType: VehicleType;
+  vehicleType: VehicleType | null;
   dealPriceVnd?: bigint | number | string | null;
 };
 
@@ -32,7 +32,7 @@ export function buildDriverNotifyMessage(order: NotifyOrder, adminHotline: strin
       ? "-"
       : new Intl.NumberFormat("vi-VN").format(Number(order.dealPriceVnd));
 
-  const vehicle = VEHICLE_LABEL[order.vehicleType]?.vi || order.vehicleType;
+  const vehicle = (order.vehicleType && VEHICLE_LABEL[order.vehicleType]?.vi) || order.vehicleType || "-";
   const pickupAt = dayjs(order.pickupAt).format("YYYY-MM-DD HH:mm");
 
   return [

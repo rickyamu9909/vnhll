@@ -20,6 +20,7 @@ export default function NewOrderPage() {
     const payload = {
       ...values,
       pickupAt: (values.pickupAt as dayjs.Dayjs).toISOString(),
+      etaAt: (values.etaAt as dayjs.Dayjs).toISOString(),
     };
     const res = await apiFetch<{ id: string }>("/api/orders", {
       method: "POST",
@@ -46,7 +47,7 @@ export default function NewOrderPage() {
         <Form
           layout="vertical"
           onFinish={onFinish}
-          initialValues={{ vehicleType: "TON_3_5", cargoWeightKg: 500, cargoVolumeM3: 2 }}
+          initialValues={{ cargoType: "GENERAL", packaging: "CARTON", cargoItems: [{ quantity: 1 }] }}
         >
           <OrderFormFields />
           <Space>

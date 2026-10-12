@@ -117,6 +117,29 @@ export default function AdminOrderDetailPage() {
     if (ok) approveForm.resetFields();
   };
 
+  const onRejectAudit = () => {
+    let reason = "";
+    Modal.confirm({
+      title: "审核拒绝",
+      content: (
+        <Input.TextArea
+          rows={3}
+          placeholder="拒绝理由，客户可见"
+          onChange={(e) => {
+            reason = e.target.value;
+          }}
+        />
+      ),
+      onOk: async () => {
+        if (!reason.trim()) {
+          message.error("请填写理由");
+          return Promise.reject();
+        }
+        return patch("audit", { pass: false, reason: reason.trim() });
+      },
+    });
+  };
+
   const onReject = () => {
     let reason = "";
     Modal.confirm({
@@ -217,7 +240,22 @@ export default function AdminOrderDetailPage() {
         </Descriptions>
       </Card>
 
-      {order.status === "PENDING_REVIEW" && (
+          {(order.status === "LOCKED" || order.status === "PENDING_AUDIT") && (
+            <>
+              <Button type="primary" loading={loading} onClick={() => patch("audit", { pass: true })}>
+                审核通过
+              </Button>
+              <Button danger loading={loading} onClick={onRejectAudit}>
+                审核拒绝
+              </Button>
+            </>
+          )}
+          {(order.status === "PENDING_EXECUTION" || order.status === "IN_TRANSIT") && (
+            <Button loading={loading} onClick={() => patch("advance")}>
+              推进履约
+            </Button>
+          )}
+          {order.status === "PENDING_REVIEW" && (
         <Card title="审核通过（必须先录入司机价格）" style={{ marginBottom: 16 }}>
           <Typography.Paragraph type="secondary">
             通过前必须选择司机并填写司机价格；拒绝必须填写理由（客户可见）。
