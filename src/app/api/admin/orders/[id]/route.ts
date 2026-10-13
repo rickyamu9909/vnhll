@@ -21,6 +21,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
       matchedDriver: true,
       bids: { include: { driver: true }, orderBy: { createdAt: "asc" } },
       carrierBids: { include: { bidder: { select: { username: true, displayName: true } } } },
+      cargoItems: true,
       statusLogs: { orderBy: { createdAt: "desc" } },
     },
   });

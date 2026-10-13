@@ -10,6 +10,7 @@ import {
 import { prisma } from "./prisma";
 import { calcByBps, serializeMoney, toBigIntMoney } from "./money";
 import { genOrderNo } from "./order";
+import { assertOrderRegion } from "./regions";
 
 export type CargoItemInput = {
   lengthCm: number;
@@ -66,6 +67,12 @@ export function parseOrderBody(body: Record<string, unknown>) {
     throw new Error("起运和目的联系人、电话均为必填");
   }
   if (!originAddress || !destAddress) throw new Error("起运地和目的地详细地址为必填");
+  const originProvince = String(body.originProvince || "").trim();
+  const originCity = String(body.originCity || "").trim();
+  const destProvince = String(body.destProvince || "").trim();
+  const destCity = String(body.destCity || "").trim();
+  assertOrderRegion(originProvince, originCity, "起运");
+  assertOrderRegion(destProvince, destCity, "目的");
   const items = Array.isArray(body.cargoItems) ? (body.cargoItems as CargoItemInput[]) : [];
   if (!items.length) throw new Error("请至少填写一行货物尺寸");
   const weightTons = Number(body.weightTons);

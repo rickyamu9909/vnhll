@@ -111,6 +111,9 @@ export default function OrderDetailPage() {
       <Card
         extra={
           <Space wrap>
+            <Link href={`/orders/new?from=${id}`}>
+              <Button>复制新建</Button>
+            </Link>
             {["PENDING_REVIEW", "REJECTED", "OPEN", "FAILED"].includes(order.status) ? (
               <Link href={`/orders/${id}/edit`}>
                 <Button>{t("action.edit", "修改")}</Button>

@@ -115,10 +115,26 @@ model User {
   capacities    Capacity[]
   negotiations  CapacityNegotiation[]
   notifications Notification[]
+  savedAddresses SavedAddress[]
 
   @@index([role, status])
   @@index([phone])
   @@index([parentUserId])
+}
+
+model SavedAddress {
+  id        String   @id @default(cuid())
+  userId    String
+  label     String
+  province  String
+  ward      String
+  address   String
+  contact   String
+  phone     String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
 }
 
 model Company {

@@ -128,6 +128,11 @@ export default function OrdersPage() {
                         详情
                       </Button>
                     </Link>
+                    <Link href={`/orders/new?from=${r.id}`}>
+                      <Button type="link" size="small">
+                        复制新建
+                      </Button>
+                    </Link>
                     {canEdit ? (
                       <Link href={`/orders/${r.id}/edit`} prefetch>
                         <Button type="link" size="small">

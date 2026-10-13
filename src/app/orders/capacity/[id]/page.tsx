@@ -24,6 +24,7 @@ export default function MatchCapacityPage() {
       </Space>
       <Card>
         <Form
+          size="small"
           layout="vertical"
           initialValues={{ cargoType: "GENERAL", packaging: "CARTON", cargoItems: [{ quantity: 1 }] }}
           onFinish={async (values) => {

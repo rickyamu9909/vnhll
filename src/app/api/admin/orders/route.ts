@@ -12,8 +12,12 @@ export async function GET(req: NextRequest) {
   await sweepDeadlines();
 
   const status = req.nextUrl.searchParams.get("status") as OrderStatus | null;
+  const customerId = req.nextUrl.searchParams.get("customerId");
   const orders = await prisma.order.findMany({
-    where: status ? { status } : undefined,
+    where: {
+      ...(status ? { status } : {}),
+      ...(customerId ? { customerId } : {}),
+    },
     include: {
       customer: { select: { id: true, username: true, displayName: true, company: true } },
       matchedDriver: true,

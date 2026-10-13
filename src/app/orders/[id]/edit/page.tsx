@@ -9,6 +9,7 @@ import { BackButton } from "@/components/BackButton";
 import { OrderFormFields } from "@/components/OrderFormFields";
 import { useI18n } from "@/components/I18nProvider";
 import { apiFetch } from "@/lib/client";
+import { orderToFormValues } from "@/lib/order-form";
 
 type OrderDetail = {
   id: string;
@@ -61,28 +62,11 @@ export default function EditOrderPage() {
         router.replace(`/orders/${id}`);
         return;
       }
-      const price = res.data.targetPriceVnd || res.data.customerBidVnd;
+      const values = orderToFormValues(res.data);
       form.setFieldsValue({
-        originProvince: res.data.originProvince,
-        originCity: res.data.originCity,
-        originAddress: res.data.originAddress || res.data.pickupAddress,
-        originContact: res.data.pickupContact,
-        originPhone: res.data.pickupPhone,
-        destProvince: res.data.destProvince,
-        destCity: res.data.destCity,
-        destAddress: res.data.destAddress || res.data.deliveryAddress,
-        destContact: res.data.deliveryContact,
-        destPhone: res.data.deliveryPhone,
-        cargoType: res.data.cargoType || "GENERAL",
-        packaging: res.data.packaging || "CARTON",
-        weightTons: res.data.weightTons || (res.data.cargoWeightKg ? res.data.cargoWeightKg / 1000 : undefined),
-        vehicleType: res.data.vehicleType || undefined,
-        targetPriceVnd: price ? Number(price) : undefined,
-        abnormalNote: res.data.abnormalNote,
-        note: res.data.pickupNote,
-        cargoItems: res.data.cargoItems?.length ? res.data.cargoItems : [{ quantity: 1 }],
-        pickupAt: dayjs(res.data.pickupAt),
-        etaAt: res.data.etaAt ? dayjs(res.data.etaAt) : undefined,
+        ...values,
+        pickupAt: values.pickupAt ? dayjs(values.pickupAt) : undefined,
+        etaAt: values.etaAt ? dayjs(values.etaAt) : undefined,
       });
       setReady(true);
     })();
@@ -119,10 +103,10 @@ export default function EditOrderPage() {
         {!ready ? (
           <Spin />
         ) : (
-          <Form form={form} layout="vertical" onFinish={onFinish}>
+          <Form form={form} size="small" layout="vertical" onFinish={onFinish}>
             <OrderFormFields />
             <Space>
-              <Button type="primary" htmlType="submit" loading={loading} size="large">
+              <Button type="primary" htmlType="submit" loading={loading}>
                 {t("action.save", "保存")}
               </Button>
               <Button onClick={() => router.push(`/orders/${id}`)}>{t("action.cancel", "取消")}</Button>

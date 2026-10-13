@@ -5,6 +5,13 @@ import { prisma } from "@/lib/prisma";
 import { jsonFail, jsonOk } from "@/lib/api";
 import { logOp } from "@/lib/market";
 
+function imageValue(value: unknown, label: string): { error?: string; text: string } {
+  const text = String(value || "");
+  if (!text.startsWith("data:image/")) return { error: `请上传${label}`, text: "" };
+  if (text.length > 250_000) return { error: `${label}图片过大，请换一张较小的照片`, text: "" };
+  return { text };
+}
+
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const kind = String(body.kind || "COMPANY");
@@ -20,10 +27,15 @@ export async function POST(req: NextRequest) {
   const passwordHash = await bcrypt.hash(password, 10);
   if (kind === "PERSONAL") {
     const photos = Array.isArray(body.photoUrls) ? body.photoUrls.map(String).filter(Boolean) : [];
-    if (photos.length < 6) return jsonFail("个人司机需提供 6 张车辆照片（可填图片地址）");
-    if (!body.idNumber || !body.driverLicense || !body.vehicleLicense || !body.insuranceNote) {
-      return jsonFail("身份证、驾驶证、行驶证、保险证明为必填");
+    if (photos.length < 6 || photos.some((p: string) => !p.startsWith("data:image/") || p.length > 250_000)) {
+      return jsonFail("请上传 6 张车辆照片");
     }
+    const idCard = imageValue(body.idNumber, "身份证");
+    const driverLicense = imageValue(body.driverLicense, "驾驶证");
+    const vehicleLicense = imageValue(body.vehicleLicense, "行驶证");
+    const insurance = imageValue(body.insuranceNote, "保险证明");
+    const docError = idCard.error || driverLicense.error || vehicleLicense.error || insurance.error;
+    if (docError) return jsonFail(docError);
     const user = await prisma.user.create({
       data: {
         username,
@@ -37,10 +49,10 @@ export async function POST(req: NextRequest) {
           create: {
             contactName: String(body.contactName || ""),
             contactPhone,
-            idNumber: String(body.idNumber),
-            driverLicense: String(body.driverLicense),
-            vehicleLicense: String(body.vehicleLicense),
-            insuranceNote: String(body.insuranceNote),
+            idNumber: idCard.text,
+            driverLicense: driverLicense.text,
+            vehicleLicense: vehicleLicense.text,
+            insuranceNote: insurance.text,
             photoUrls: JSON.stringify(photos.slice(0, 6)),
           },
         },
@@ -52,8 +64,9 @@ export async function POST(req: NextRequest) {
 
   const companyName = String(body.companyName || "").trim();
   const address = String(body.address || "").trim();
-  const licenseNo = String(body.licenseNo || "").trim();
-  if (!companyName || !address || !licenseNo) return jsonFail("公司名称、地址、营业执照为必填");
+  const license = imageValue(body.licenseNo, "营业执照");
+  if (!companyName || !address) return jsonFail("公司名称、地址为必填");
+  if (license.error) return jsonFail(license.error);
   const user = await prisma.user.create({
     data: {
       username,
@@ -67,7 +80,7 @@ export async function POST(req: NextRequest) {
         create: {
           companyName,
           address,
-          licenseNo,
+          licenseNo: license.text,
           contactName: String(body.contactName || ""),
           contactPhone,
         },

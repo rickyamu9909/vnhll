@@ -1,30 +1,69 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Button, Card, Form, Space, Typography, message } from "antd";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Alert, Button, Card, Form, Select, Space, Typography, message } from "antd";
+import dayjs from "dayjs";
 import { CustomerShell } from "@/components/CustomerShell";
 import { BackButton } from "@/components/BackButton";
 import { OrderFormFields } from "@/components/OrderFormFields";
 import { useI18n } from "@/components/I18nProvider";
 import { apiFetch } from "@/lib/client";
-import dayjs from "dayjs";
+import { orderToFormValues, pickupIsPast, type OrderFormSource } from "@/lib/order-form";
 
-export default function NewOrderPage() {
+type HistoryOrder = OrderFormSource & { id: string; orderNo: string };
+
+function withDates(order: OrderFormSource) {
+  const values = orderToFormValues(order);
+  return {
+    ...values,
+    pickupAt: values.pickupAt ? dayjs(values.pickupAt) : undefined,
+    etaAt: values.etaAt ? dayjs(values.etaAt) : undefined,
+  };
+}
+
+function NewOrderPage() {
   const { t } = useI18n();
   const router = useRouter();
+  const from = useSearchParams().get("from");
+  const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
+  const [history, setHistory] = useState<HistoryOrder[]>([]);
+  const [pastPickup, setPastPickup] = useState(false);
+
+  const fill = (order: OrderFormSource) => {
+    form.setFieldsValue(withDates(order));
+    setPastPickup(pickupIsPast(order.pickupAt));
+    message.success("已填入历史订单，请核对后提交");
+  };
+
+  const fillFromId = async (id: string) => {
+    const detail = await apiFetch<HistoryOrder>(`/api/orders/${id}`);
+    if (!detail.ok || !detail.data) {
+      message.error(detail.message || "读取历史订单失败");
+      return;
+    }
+    fill(detail.data);
+  };
+
+  useEffect(() => {
+    (async () => {
+      const res = await apiFetch<HistoryOrder[]>("/api/orders");
+      if (res.ok) setHistory(res.data || []);
+      if (from) await fillFromId(from);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [from]);
 
   const onFinish = async (values: Record<string, unknown>) => {
     setLoading(true);
-    const payload = {
-      ...values,
-      pickupAt: (values.pickupAt as dayjs.Dayjs).toISOString(),
-      etaAt: (values.etaAt as dayjs.Dayjs).toISOString(),
-    };
     const res = await apiFetch<{ id: string }>("/api/orders", {
       method: "POST",
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        ...values,
+        pickupAt: (values.pickupAt as dayjs.Dayjs).toISOString(),
+        etaAt: (values.etaAt as dayjs.Dayjs).toISOString(),
+      }),
     });
     setLoading(false);
     if (!res.ok) {
@@ -45,13 +84,31 @@ export default function NewOrderPage() {
       </Space>
       <Card>
         <Form
+          form={form}
+          size="small"
           layout="vertical"
           onFinish={onFinish}
           initialValues={{ cargoType: "GENERAL", packaging: "CARTON", cargoItems: [{ quantity: 1 }] }}
         >
+          <Form.Item label="从历史订单复制" style={{ marginBottom: 12 }}>
+            <Select
+              allowClear
+              showSearch
+              optionFilterProp="label"
+              placeholder="选择一条历史订单，内容会直接填入"
+              options={history.map((row) => ({
+                value: row.id,
+                label: `${row.orderNo} ${row.originProvince || ""} → ${row.destProvince || ""}`,
+              }))}
+              onChange={(id) => {
+                if (id) fillFromId(id);
+              }}
+            />
+          </Form.Item>
+          {pastPickup ? <Alert type="warning" showIcon style={{ marginBottom: 12 }} message="复制的接货时间已过，请改成新的时间后再提交" /> : null}
           <OrderFormFields />
           <Space>
-            <Button type="primary" htmlType="submit" loading={loading} size="large">
+            <Button type="primary" htmlType="submit" loading={loading}>
               {t("action.submit", "提交订单")}
             </Button>
             <Button onClick={() => router.push("/orders")}>{t("action.cancel", "取消")}</Button>
@@ -59,5 +116,13 @@ export default function NewOrderPage() {
         </Form>
       </Card>
     </CustomerShell>
+  );
+}
+
+export default function NewOrderRoute() {
+  return (
+    <Suspense>
+      <NewOrderPage />
+    </Suspense>
   );
 }
