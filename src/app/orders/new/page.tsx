@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Alert, Button, Card, Form, Select, Space, Typography, message } from "antd";
+import { Alert, Button, Card, Form, Space, Typography, message } from "antd";
 import dayjs from "dayjs";
 import { CustomerShell } from "@/components/CustomerShell";
 import { BackButton } from "@/components/BackButton";
@@ -28,7 +28,6 @@ function NewOrderPage() {
   const from = useSearchParams().get("from");
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
-  const [history, setHistory] = useState<HistoryOrder[]>([]);
   const [pastPickup, setPastPickup] = useState(false);
 
   const fill = (order: OrderFormSource) => {
@@ -47,11 +46,7 @@ function NewOrderPage() {
   };
 
   useEffect(() => {
-    (async () => {
-      const res = await apiFetch<HistoryOrder[]>("/api/orders");
-      if (res.ok) setHistory(res.data || []);
-      if (from) await fillFromId(from);
-    })();
+    if (from) fillFromId(from);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [from]);
 
@@ -61,8 +56,8 @@ function NewOrderPage() {
       method: "POST",
       body: JSON.stringify({
         ...values,
-        pickupAt: (values.pickupAt as dayjs.Dayjs).toISOString(),
-        etaAt: (values.etaAt as dayjs.Dayjs).toISOString(),
+        pickupAt: values.pickupAt ? (values.pickupAt as dayjs.Dayjs).toISOString() : undefined,
+        etaAt: values.etaAt ? (values.etaAt as dayjs.Dayjs).toISOString() : undefined,
       }),
     });
     setLoading(false);
@@ -90,22 +85,7 @@ function NewOrderPage() {
           onFinish={onFinish}
           initialValues={{ cargoType: "GENERAL", packaging: "CARTON", cargoItems: [{ quantity: 1 }] }}
         >
-          <Form.Item label="从历史订单复制" style={{ marginBottom: 12 }}>
-            <Select
-              allowClear
-              showSearch
-              optionFilterProp="label"
-              placeholder="选择一条历史订单，内容会直接填入"
-              options={history.map((row) => ({
-                value: row.id,
-                label: `${row.orderNo} ${row.originProvince || ""} → ${row.destProvince || ""}`,
-              }))}
-              onChange={(id) => {
-                if (id) fillFromId(id);
-              }}
-            />
-          </Form.Item>
-          {pastPickup ? <Alert type="warning" showIcon style={{ marginBottom: 12 }} message="复制的接货时间已过，请改成新的时间后再提交" /> : null}
+          {pastPickup ? <Alert type="warning" showIcon style={{ marginBottom: 12 }} message={t("form.past_pickup", "复制的接货时间已过，请改成新的时间后再提交")} /> : null}
           <OrderFormFields />
           <Space>
             <Button type="primary" htmlType="submit" loading={loading}>

@@ -66,20 +66,31 @@ export function parseOrderBody(body: Record<string, unknown>) {
   if (!originContact || !originPhone || !destContact || !destPhone) {
     throw new Error("起运和目的联系人、电话均为必填");
   }
-  if (!originAddress || !destAddress) throw new Error("起运地和目的地详细地址为必填");
   const originProvince = String(body.originProvince || "").trim();
   const originCity = String(body.originCity || "").trim();
   const destProvince = String(body.destProvince || "").trim();
   const destCity = String(body.destCity || "").trim();
-  assertOrderRegion(originProvince, originCity, "起运");
-  assertOrderRegion(destProvince, destCity, "目的");
-  const items = Array.isArray(body.cargoItems) ? (body.cargoItems as CargoItemInput[]) : [];
-  if (!items.length) throw new Error("请至少填写一行货物尺寸");
-  const weightTons = Number(body.weightTons);
-  if (!Number.isFinite(weightTons) || weightTons <= 0) throw new Error("请填写货物重量（吨）");
-  const pickupAt = new Date(String(body.pickupAt || ""));
-  const etaAt = new Date(String(body.etaAt || ""));
-  if (Number.isNaN(pickupAt.getTime()) || Number.isNaN(etaAt.getTime())) throw new Error("请填写预约接货和预计送达时间");
+  if (originProvince && originCity) assertOrderRegion(originProvince, originCity, "起运");
+  if (destProvince && destCity) assertOrderRegion(destProvince, destCity, "目的");
+  const rawItems = Array.isArray(body.cargoItems) ? (body.cargoItems as CargoItemInput[]) : [];
+  const items: CargoItemInput[] = [];
+  for (const it of rawItems) {
+    const blank = !it.lengthCm && !it.widthCm && !it.heightCm;
+    if (blank) continue;
+    const lengthCm = Number(it.lengthCm);
+    const widthCm = Number(it.widthCm);
+    const heightCm = Number(it.heightCm);
+    if (!lengthCm || !widthCm || !heightCm) throw new Error("尺寸请填写完整");
+    items.push({ lengthCm, widthCm, heightCm, quantity: Number(it.quantity) || 1 });
+  }
+  const weightRaw = body.weightTons;
+  const weightTons = weightRaw === undefined || weightRaw === null || weightRaw === "" ? 0 : Number(weightRaw);
+  if (!Number.isFinite(weightTons) || weightTons < 0) throw new Error("重量格式不正确");
+  const pickupAt = body.pickupAt ? new Date(String(body.pickupAt)) : addHours(new Date(), 24);
+  const etaAt = body.etaAt ? new Date(String(body.etaAt)) : null;
+  if (Number.isNaN(pickupAt.getTime()) || (body.etaAt && etaAt && Number.isNaN(etaAt.getTime()))) {
+    throw new Error("时间格式不正确");
+  }
   const targetRaw = body.targetPriceVnd;
   const targetPriceVnd =
     targetRaw === null || targetRaw === undefined || targetRaw === "" ? null : toBigIntMoney(targetRaw as number | string);
@@ -115,12 +126,12 @@ export function parseOrderBody(body: Record<string, unknown>) {
 function shipmentData(parsed: ReturnType<typeof parseOrderBody>, extra: Record<string, unknown>) {
   const cargoName = parsed.items.map((i) => `${i.lengthCm}x${i.widthCm}x${i.heightCm}cm x${i.quantity}`).join("; ");
   return {
-    pickupAddress: [parsed.originProvince, parsed.originCity, parsed.originAddress].filter(Boolean).join(" "),
+    pickupAddress: [parsed.originProvince, parsed.originCity, parsed.originAddress].filter(Boolean).join(" ") || "-",
     pickupContact: parsed.originContact,
     pickupPhone: parsed.originPhone,
     pickupNote: parsed.note,
     pickupAt: parsed.pickupAt,
-    deliveryAddress: [parsed.destProvince, parsed.destCity, parsed.destAddress].filter(Boolean).join(" "),
+    deliveryAddress: [parsed.destProvince, parsed.destCity, parsed.destAddress].filter(Boolean).join(" ") || "-",
     deliveryContact: parsed.destContact,
     deliveryPhone: parsed.destPhone,
     cargoName: cargoName || "货物",
@@ -136,7 +147,7 @@ function shipmentData(parsed: ReturnType<typeof parseOrderBody>, extra: Record<s
     cargoType: parsed.cargoType,
     packaging: parsed.packaging,
     weightTons: parsed.weightTons,
-    etaAt: parsed.etaAt,
+      etaAt: parsed.etaAt ?? parsed.pickupAt,
     targetPriceVnd: parsed.targetPriceVnd,
     customerBidVnd: parsed.targetPriceVnd,
     abnormalNote: parsed.abnormalNote,
@@ -570,7 +581,7 @@ async function negotiationShipment(body: Record<string, unknown>, capacityId: st
       packaging: parsed.packaging,
       weightTons: parsed.weightTons,
       pickupAt: parsed.pickupAt,
-      etaAt: parsed.etaAt,
+      etaAt: parsed.etaAt ?? parsed.pickupAt,
       note: parsed.note,
       respondDeadline: deadline,
     },

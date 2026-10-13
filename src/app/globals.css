@@ -30,16 +30,40 @@ a {
 }
 
 .compact-form .ant-form-item {
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .compact-form .ant-form-item-label {
-  padding-bottom: 2px;
+  padding-bottom: 0;
 }
 
 .compact-form .ant-form-item-label > label {
+  font-size: 11px;
+  height: 16px;
+}
+
+.compact-form .ant-input,
+.compact-form .ant-input-number,
+.compact-form .ant-input-number-input,
+.compact-form .ant-picker {
   font-size: 12px;
-  height: auto;
+}
+
+.compact-form .ant-input,
+.compact-form .ant-input-number,
+.compact-form .ant-picker,
+.compact-form .ant-select-single .ant-select-selector {
+  height: 28px !important;
+}
+
+.compact-form .ant-select-single .ant-select-selection-item,
+.compact-form .ant-select-single .ant-select-selection-placeholder,
+.compact-form .ant-input-number-input {
+  line-height: 26px !important;
+}
+
+.compact-form .ant-select-single .ant-select-selector .ant-select-selection-search-input {
+  height: 26px !important;
 }
 
 .order-section {

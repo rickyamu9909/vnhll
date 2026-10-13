@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { UI_TEXT } from "@/lib/ui-text";
 
 type Locale = "zh" | "vi";
 
@@ -41,7 +42,7 @@ export function I18nProvider({ children, initialLocale = "zh" }: { children: Rea
     const cached = readCachedDict(locale);
     if (!cached) setLoading(true);
     try {
-      const res = await fetch(`/api/i18n?locale=${locale}`, { cache: "force-cache" });
+      const res = await fetch(`/api/i18n?locale=${locale}`, { cache: "no-store" });
       const json = await res.json();
       if (json.ok) {
         const nextDict = json.data.dict || {};
@@ -63,6 +64,7 @@ export function I18nProvider({ children, initialLocale = "zh" }: { children: Rea
 
   const setLocale = (l: Locale) => {
     setLocaleState(l);
+    setDict(readCachedDict(l) || {});
     if (typeof window !== "undefined") localStorage.setItem(LOCALE_KEY, l);
   };
 
@@ -73,7 +75,7 @@ export function I18nProvider({ children, initialLocale = "zh" }: { children: Rea
       setLocale,
       loading,
       reload,
-      t: (key: string, fallback?: string) => dict[key] || fallback || key,
+      t: (key: string, fallback?: string) => dict[key] || UI_TEXT[locale][key] || fallback || key,
     }),
     [locale, dict, loading, reload]
   );

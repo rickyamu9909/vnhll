@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Alert, Button, Card, Form, Select, Space, Typography, message } from "antd";
 import dayjs from "dayjs";
 import { AdminShell } from "@/components/AdminShell";
@@ -21,14 +21,14 @@ type Customer = {
 
 type HistoryOrder = OrderFormSource & { id: string; orderNo: string; customerId?: string };
 
-export default function AdminNewOrderPage() {
+function AdminNewOrderPage() {
   const { t } = useI18n();
   const router = useRouter();
   const [form] = Form.useForm();
   const customerId = Form.useWatch("customerId", form) as string | undefined;
   const [loading, setLoading] = useState(false);
+  const from = useSearchParams().get("from");
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [history, setHistory] = useState<HistoryOrder[]>([]);
   const [pastPickup, setPastPickup] = useState(false);
 
   useEffect(() => {
@@ -43,29 +43,20 @@ export default function AdminNewOrderPage() {
   }, []);
 
   useEffect(() => {
-    if (!customerId) {
-      setHistory([]);
-      return;
-    }
+    if (!from) return;
     (async () => {
-      const res = await apiFetch<HistoryOrder[]>(`/api/admin/orders?customerId=${customerId}`);
-      if (res.ok) setHistory(res.data || []);
+      const detail = await apiFetch<HistoryOrder & { customer?: { id: string } }>(`/api/admin/orders/${from}`);
+      if (!detail.ok || !detail.data) return message.error(detail.message || "读取历史订单失败");
+      const values = orderToFormValues(detail.data);
+      form.setFieldsValue({
+        ...values,
+        customerId: detail.data.customerId || detail.data.customer?.id,
+        pickupAt: values.pickupAt ? dayjs(values.pickupAt) : undefined,
+        etaAt: values.etaAt ? dayjs(values.etaAt) : undefined,
+      });
+      setPastPickup(pickupIsPast(detail.data.pickupAt));
     })();
-  }, [customerId]);
-
-  const fillFromId = async (id: string) => {
-    const detail = await apiFetch<HistoryOrder>(`/api/admin/orders/${id}`);
-    if (!detail.ok || !detail.data) return message.error(detail.message || "读取历史订单失败");
-    const values = orderToFormValues(detail.data);
-    form.setFieldsValue({
-      ...values,
-      customerId,
-      pickupAt: values.pickupAt ? dayjs(values.pickupAt) : undefined,
-      etaAt: values.etaAt ? dayjs(values.etaAt) : undefined,
-    });
-    setPastPickup(pickupIsPast(detail.data.pickupAt));
-    message.success("已填入历史订单，请核对后提交");
-  };
+  }, [from, form]);
 
   const onFinish = async (values: Record<string, unknown>) => {
     setLoading(true);
@@ -73,8 +64,8 @@ export default function AdminNewOrderPage() {
       method: "POST",
       body: JSON.stringify({
         ...values,
-        pickupAt: (values.pickupAt as dayjs.Dayjs).toISOString(),
-        etaAt: (values.etaAt as dayjs.Dayjs).toISOString(),
+        pickupAt: values.pickupAt ? (values.pickupAt as dayjs.Dayjs).toISOString() : undefined,
+        etaAt: values.etaAt ? (values.etaAt as dayjs.Dayjs).toISOString() : undefined,
       }),
     });
     setLoading(false);
@@ -110,23 +101,7 @@ export default function AdminNewOrderPage() {
               }))}
             />
           </Form.Item>
-          <Form.Item label="从该客户的历史订单复制">
-            <Select
-              allowClear
-              showSearch
-              optionFilterProp="label"
-              disabled={!customerId}
-              placeholder={customerId ? "选择一条历史订单，内容会直接填入" : "请先选择客户"}
-              options={history.map((row) => ({
-                value: row.id,
-                label: `${row.orderNo} ${row.originProvince || ""} → ${row.destProvince || ""}`,
-              }))}
-              onChange={(id) => {
-                if (id) fillFromId(id);
-              }}
-            />
-          </Form.Item>
-          {pastPickup ? <Alert type="warning" showIcon style={{ marginBottom: 12 }} message="复制的接货时间已过，请改成新的时间后再提交" /> : null}
+          {pastPickup ? <Alert type="warning" showIcon style={{ marginBottom: 12 }} message={t("form.past_pickup", "复制的接货时间已过，请改成新的时间后再提交")} /> : null}
           <OrderFormFields addressMode="customer" addressUserId={customerId} />
           <Space>
             <Button type="primary" htmlType="submit" loading={loading}>
@@ -137,5 +112,13 @@ export default function AdminNewOrderPage() {
         </Form>
       </Card>
     </AdminShell>
+  );
+}
+
+export default function AdminNewOrderRoute() {
+  return (
+    <Suspense>
+      <AdminNewOrderPage />
+    </Suspense>
   );
 }

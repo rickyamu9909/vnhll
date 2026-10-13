@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { OrderStatus, UserRole, UserStatus } from "@prisma/client";
+import { OrderStatus, Prisma, UserRole, UserStatus } from "@prisma/client";
 import { getSession, requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { jsonFail, jsonOk } from "@/lib/api";
@@ -13,15 +13,72 @@ export async function GET(req: NextRequest) {
 
   const status = req.nextUrl.searchParams.get("status") as OrderStatus | null;
   const customerId = req.nextUrl.searchParams.get("customerId");
+  const q = req.nextUrl.searchParams.get("q")?.trim();
+  const customer = req.nextUrl.searchParams.get("customer")?.trim();
+  const origin = req.nextUrl.searchParams.get("origin")?.trim();
+  const dest = req.nextUrl.searchParams.get("dest")?.trim();
+  const phone = req.nextUrl.searchParams.get("phone")?.trim();
+  const cargo = req.nextUrl.searchParams.get("cargo")?.trim();
+  const dateFrom = req.nextUrl.searchParams.get("dateFrom");
+  const dateTo = req.nextUrl.searchParams.get("dateTo");
+  const and: Prisma.OrderWhereInput[] = [];
+  if (status) and.push({ status });
+  if (customerId) and.push({ customerId });
+  if (q) and.push({ orderNo: { contains: q, mode: "insensitive" } });
+  if (customer) {
+    and.push({
+      customer: {
+        OR: [
+          { username: { contains: customer, mode: "insensitive" } },
+          { displayName: { contains: customer, mode: "insensitive" } },
+          { company: { companyName: { contains: customer, mode: "insensitive" } } },
+        ],
+      },
+    });
+  }
+  if (origin) {
+    and.push({
+      OR: [
+        { originProvince: { contains: origin, mode: "insensitive" } },
+        { originCity: { contains: origin, mode: "insensitive" } },
+        { originAddress: { contains: origin, mode: "insensitive" } },
+        { pickupAddress: { contains: origin, mode: "insensitive" } },
+        { pickupContact: { contains: origin, mode: "insensitive" } },
+      ],
+    });
+  }
+  if (dest) {
+    and.push({
+      OR: [
+        { destProvince: { contains: dest, mode: "insensitive" } },
+        { destCity: { contains: dest, mode: "insensitive" } },
+        { destAddress: { contains: dest, mode: "insensitive" } },
+        { deliveryAddress: { contains: dest, mode: "insensitive" } },
+        { deliveryContact: { contains: dest, mode: "insensitive" } },
+      ],
+    });
+  }
+  if (phone) {
+    and.push({
+      OR: [
+        { pickupPhone: { contains: phone } },
+        { deliveryPhone: { contains: phone } },
+      ],
+    });
+  }
+  if (cargo) and.push({ cargoName: { contains: cargo, mode: "insensitive" } });
+  if (dateFrom || dateTo) {
+    and.push({
+      pickupAt: {
+        ...(dateFrom ? { gte: new Date(dateFrom) } : {}),
+        ...(dateTo ? { lte: new Date(dateTo) } : {}),
+      },
+    });
+  }
   const orders = await prisma.order.findMany({
-    where: {
-      ...(status ? { status } : {}),
-      ...(customerId ? { customerId } : {}),
-    },
+    where: and.length ? { AND: and } : undefined,
     include: {
       customer: { select: { id: true, username: true, displayName: true, company: true } },
-      matchedDriver: true,
-      bids: { include: { driver: true }, orderBy: { priceVnd: "asc" } },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -33,10 +90,6 @@ export async function GET(req: NextRequest) {
       dealPriceVnd: o.dealPriceVnd?.toString() ?? null,
       platformFeeVnd: o.platformFeeVnd?.toString() ?? null,
       driverIncomeVnd: o.driverIncomeVnd?.toString() ?? null,
-      bids: o.bids.map((b) => ({
-        ...b,
-        priceVnd: b.priceVnd.toString(),
-      })),
     }))
   );
 }

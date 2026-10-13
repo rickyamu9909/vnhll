@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Button, Card, Space, Table, Tag, Typography, message, Modal, Input } from "antd";
+import { Button, Card, Form, Input, Modal, Space, Table, Tag, Typography, message } from "antd";
 import dayjs from "dayjs";
 import { AdminShell } from "@/components/AdminShell";
 import { useI18n } from "@/components/I18nProvider";
@@ -15,13 +15,16 @@ type Customer = {
   status: string;
   rejectReason?: string;
   createdAt: string;
-  company?: { companyName: string; contactName?: string; contactPhone?: string };
+  company?: { companyName: string; contactName?: string; contactPhone?: string; address?: string };
 };
 
 export default function AdminCustomersPage() {
   const { t } = useI18n();
   const [rows, setRows] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<Customer | null>(null);
+  const [form] = Form.useForm();
 
   const load = async () => {
     setLoading(true);
@@ -51,9 +54,42 @@ export default function AdminCustomersPage() {
     load();
   };
 
+  const openEdit = (row?: Customer) => {
+    setEditing(row || null);
+    form.setFieldsValue(
+      row
+        ? {
+            username: row.username,
+            companyName: row.company?.companyName,
+            contactName: row.company?.contactName,
+            contactPhone: row.company?.contactPhone || row.phone,
+            address: row.company?.address,
+          }
+        : { username: "", companyName: "", contactName: "", contactPhone: "", address: "", password: "" }
+    );
+    setOpen(true);
+  };
+
+  const save = async (values: Record<string, string>) => {
+    const res = editing
+      ? await apiFetch("/api/admin/customers", { method: "PATCH", body: JSON.stringify({ id: editing.id, action: "update", ...values }) })
+      : await apiFetch("/api/admin/customers", { method: "POST", body: JSON.stringify(values) });
+    if (!res.ok) return message.error(res.message || "保存失败");
+    message.success("已保存");
+    setOpen(false);
+    load();
+  };
+
   return (
     <AdminShell>
-      <Typography.Title level={3}>{t("nav.admin_customers", "客户管理")}</Typography.Title>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
+        <Typography.Title level={3} style={{ margin: 0 }}>
+          {t("nav.admin_customers", "客户管理")}
+        </Typography.Title>
+        <Button type="primary" onClick={() => openEdit()}>
+          {t("admin.add_customer", "新增客户")}
+        </Button>
+      </div>
       <Card>
         <Table
           rowKey="id"
@@ -77,6 +113,9 @@ export default function AdminCustomersPage() {
               title: "操作",
               render: (_, r) => (
                 <Space>
+                  <Button size="small" onClick={() => openEdit(r)}>
+                    {t("admin.edit_customer", "编辑")}
+                  </Button>
                   {r.status === "PENDING" && (
                     <>
                       <Button size="small" type="primary" onClick={() => act(r.id, "approve")}>
@@ -116,6 +155,36 @@ export default function AdminCustomersPage() {
           ]}
         />
       </Card>
+      <Modal
+        title={editing ? t("admin.edit_customer", "编辑客户") : t("admin.add_customer", "新增客户")}
+        open={open}
+        onCancel={() => setOpen(false)}
+        onOk={() => form.submit()}
+        destroyOnClose
+      >
+        <Form form={form} layout="vertical" onFinish={save}>
+          {!editing ? (
+            <Form.Item name="username" label="登录账号" rules={[{ required: true }]}>
+              <Input />
+            </Form.Item>
+          ) : null}
+          <Form.Item name="password" label={editing ? "新密码（不改可留空）" : "密码"} rules={editing ? [] : [{ required: true, min: 6 }]}>
+            <Input.Password />
+          </Form.Item>
+          <Form.Item name="companyName" label="企业名称" rules={[{ required: true }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="contactName" label="联系人" rules={[{ required: true }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="contactPhone" label="电话" rules={[{ required: true }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="address" label="地址">
+            <Input />
+          </Form.Item>
+        </Form>
+      </Modal>
     </AdminShell>
   );
 }

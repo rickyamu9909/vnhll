@@ -76,14 +76,31 @@ describe("建单校验", () => {
     assert.equal(parsed.targetPriceVnd, null);
   });
 
-  it("缺少联系人、地址、尺寸、重量、时间或行政区时拒绝", () => {
+  it("只有联系人和电话必填", () => {
+    const parsed = parseOrderBody(
+      sampleBody({
+        originProvince: "",
+        originCity: "",
+        destProvince: "",
+        destCity: "",
+        originAddress: "",
+        destAddress: "",
+        cargoItems: [],
+        weightTons: "",
+        pickupAt: "",
+        etaAt: "",
+      })
+    );
+    assert.equal(parsed.originAddress, "");
+    assert.equal(parsed.items.length, 0);
+    assert.equal(parsed.weightTons, 0);
+    assert.equal(parsed.etaAt, null);
+    assert.ok(parsed.pickupAt instanceof Date);
+  });
+
+  it("缺少电话时拒绝，省和坊不匹配时拒绝", () => {
     assert.throws(() => parseOrderBody(sampleBody({ originPhone: "" })), /联系人、电话/);
-    assert.throws(() => parseOrderBody(sampleBody({ destAddress: "" })), /详细地址/);
-    assert.throws(() => parseOrderBody(sampleBody({ cargoItems: [] })), /尺寸/);
-    assert.throws(() => parseOrderBody(sampleBody({ weightTons: 0 })), /重量/);
-    assert.throws(() => parseOrderBody(sampleBody({ etaAt: "" })), /时间/);
     assert.throws(() => parseOrderBody(sampleBody({ originCity: wardsOf(CAMAU)[0] })), /不匹配/);
-    assert.throws(() => parseOrderBody(sampleBody({ originProvince: "" })), /请选择起运/);
   });
 
   it("旧订单里不在名录中的省名仍可修改提交", () => {

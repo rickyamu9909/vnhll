@@ -1,10 +1,26 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Button, Card, Form, Input, Modal, Select, Space, Table, Tag, Typography, message } from "antd";
+import { Button, Card, Form, Image, Input, Modal, Select, Space, Table, Tag, Typography, message } from "antd";
 import { AdminShell } from "@/components/AdminShell";
 import { useI18n } from "@/components/I18nProvider";
 import { apiFetch, vehicleLabel } from "@/lib/client";
+
+type RegRow = { id: string; username: string; displayName?: string; role: string; carrierKind?: string; status: string; companyName?: string; phone?: string };
+type RegDetail = RegRow & {
+  address?: string | null;
+  contactName?: string | null;
+  licenseNo?: string | null;
+  idNumber?: string | null;
+  driverLicense?: string | null;
+  vehicleLicense?: string | null;
+  insuranceNote?: string | null;
+  photos?: string[];
+};
+
+function isImage(value?: string | null) {
+  return !!value && (value.startsWith("data:image/") || value.startsWith("http"));
+}
 
 type Driver = {
   id: string;
@@ -22,16 +38,16 @@ export default function AdminDriversPage() {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [form] = Form.useForm();
+  const [regs, setRegs] = useState<RegRow[]>([]);
+  const [detail, setDetail] = useState<RegDetail | null>(null);
 
   const load = async () => {
     setLoading(true);
-    const res = await apiFetch<Driver[]>("/api/admin/drivers");
+    const [res, regRes] = await Promise.all([apiFetch<Driver[]>("/api/admin/drivers"), apiFetch<RegRow[]>("/api/admin/registrations")]);
     setLoading(false);
-    if (!res.ok) {
-      message.error(res.message || "加载失败");
-      return;
-    }
-    setRows(res.data || []);
+    if (!res.ok) message.error(res.message || "加载失败");
+    else setRows(res.data || []);
+    if (regRes.ok) setRegs((regRes.data || []).filter((row) => row.role === "CARRIER_MAIN"));
   };
 
   useEffect(() => {
@@ -76,7 +92,37 @@ export default function AdminDriversPage() {
           {t("action.create", "新建司机")}
         </Button>
       </div>
-      <Card>
+      <Card title="注册司机" size="small" style={{ marginBottom: 16 }}>
+        <Table
+          size="small"
+          rowKey="id"
+          dataSource={regs}
+          pagination={{ pageSize: 10 }}
+          columns={[
+            { title: "名称", render: (_, r) => r.companyName || r.displayName || r.username },
+            { title: "账号", dataIndex: "username" },
+            { title: "类型", dataIndex: "carrierKind", render: (v) => v || "-" },
+            { title: "电话", dataIndex: "phone" },
+            { title: "状态", dataIndex: "status", render: (v) => <Tag>{v}</Tag> },
+            {
+              title: "操作",
+              render: (_, r) => (
+                <Button
+                  size="small"
+                  onClick={async () => {
+                    const res = await apiFetch<RegDetail>(`/api/admin/registrations/${r.id}`);
+                    if (!res.ok || !res.data) message.error(res.message || "加载失败");
+                    else setDetail(res.data);
+                  }}
+                >
+                  查看资料
+                </Button>
+              ),
+            },
+          ]}
+        />
+      </Card>
+      <Card title="线下司机" size="small">
         <Table
           rowKey="id"
           loading={loading}
@@ -147,6 +193,39 @@ export default function AdminDriversPage() {
             <Input.TextArea rows={2} />
           </Form.Item>
         </Form>
+      </Modal>
+      <Modal title="注册资料" open={!!detail} footer={null} width={760} onCancel={() => setDetail(null)}>
+        {detail ? (
+          <Space direction="vertical" style={{ width: "100%" }}>
+            <Typography.Text>
+              {detail.companyName || detail.displayName || detail.username} · {detail.contactName || "-"} · {detail.phone || "-"} · {detail.address || "-"}
+            </Typography.Text>
+            <Image.PreviewGroup>
+              <Space wrap>
+                {[
+                  ["营业执照", detail.licenseNo],
+                  ["身份证", detail.idNumber],
+                  ["驾驶证", detail.driverLicense],
+                  ["行驶证", detail.vehicleLicense],
+                  ["保险证明", detail.insuranceNote],
+                ].map(([title, src]) =>
+                  src ? (
+                    <div key={title}>
+                      <div style={{ fontSize: 12 }}>{title}</div>
+                      {isImage(src) ? <Image src={src} width={120} height={90} style={{ objectFit: "cover" }} /> : <span>{src}</span>}
+                    </div>
+                  ) : null
+                )}
+                {(detail.photos || []).map((src, index) => (
+                  <div key={index}>
+                    <div style={{ fontSize: 12 }}>车辆照片 {index + 1}</div>
+                    <Image src={src} width={120} height={90} style={{ objectFit: "cover" }} />
+                  </div>
+                ))}
+              </Space>
+            </Image.PreviewGroup>
+          </Space>
+        ) : null}
       </Modal>
     </AdminShell>
   );
