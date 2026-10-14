@@ -17,7 +17,7 @@ export default function DriverRegisterPage() {
   const [kind, setKind] = useState("COMPANY");
   const [done, setDone] = useState(false);
   return (
-    <div style={{ maxWidth: 760, margin: "32px auto", padding: 16 }}>
+    <div className="auth-panel" style={{ maxWidth: 760, margin: "32px auto", padding: 16 }}>
       <Typography.Title level={3}>司机注册</Typography.Title>
       <Card>
         {done ? (

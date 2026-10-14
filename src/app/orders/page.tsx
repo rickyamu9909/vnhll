@@ -118,7 +118,7 @@ export default function OrdersPage() {
             },
             {
               title: "操作",
-              width: 260,
+              width: 330,
               fixed: "right",
               render: (_, r) => {
                 const canEdit = EDITABLE.has(r.status);
@@ -128,6 +128,11 @@ export default function OrdersPage() {
                     <Link href={`/orders/${r.id}`} prefetch>
                       <Button type="link" size="small">
                         详情
+                      </Button>
+                    </Link>
+                    <Link href={`/orders/${r.id}/track`}>
+                      <Button type="link" size="small">
+                        {t("track.view", "查看轨迹")}
                       </Button>
                     </Link>
                     <Link href={`/orders/new?from=${r.id}`}>

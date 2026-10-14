@@ -41,7 +41,7 @@ export default function AdminDashboard() {
       <Typography.Title level={3}>{t("dash.title", "工作台")}</Typography.Title>
       <Row gutter={16}>
         {cards.map((card) => (
-          <Col span={6} key={card.key}>
+          <Col xs={24} sm={12} lg={6} key={card.key}>
             <Link href={card.href}>
               <Card hoverable>
                 <Statistic title={t(card.titleKey, card.fallback)} value={stats[card.key]} />

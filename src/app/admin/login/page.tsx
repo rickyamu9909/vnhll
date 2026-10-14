@@ -31,7 +31,7 @@ export default function AdminLoginPage() {
   };
 
   return (
-    <div style={{ maxWidth: 420, margin: "80px auto", padding: 16 }}>
+    <div className="auth-panel" style={{ maxWidth: 420, margin: "80px auto", padding: 16 }}>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
         <Typography.Title level={3} style={{ margin: 0 }}>
           管理端登录

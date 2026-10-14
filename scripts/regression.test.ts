@@ -4,6 +4,7 @@ import { buildDeadlines, parseOrderBody, stripCustomer } from "../src/lib/market
 import { calcByBps } from "../src/lib/money";
 import { orderToFormValues, pickupIsPast, savedToForm, volumeFromItems } from "../src/lib/order-form";
 import { haversineKm, matchPair } from "../src/lib/geo";
+import { cleanRecordedAt, trackFreshness, validCoord } from "../src/lib/track";
 import { assertOrderRegion, knownProvince, provinceOptions, REGION_COUNTS, wardsOf } from "../src/lib/regions";
 import { parseSavedAddress } from "../src/lib/saved-address";
 
@@ -209,6 +210,26 @@ describe("5公里撮合", () => {
     assert.equal(hit.basis, "PICKUP");
     assert.equal(matchPair({ origin, dest: near }, { location: far }), null);
     assert.ok(haversineKm(origin, origin) < 0.001);
+  });
+});
+
+describe("司机轨迹", () => {
+  const now = Date.parse("2026-10-14T08:00:00.000Z");
+
+  it("执行中 3 分钟内是上报中，超时是失联，送达后结束", () => {
+    assert.equal(trackFreshness("IN_TRANSIT", true, new Date(now - 60 * 1000), now), "live");
+    assert.equal(trackFreshness("IN_TRANSIT", true, new Date(now - 4 * 60 * 1000), now), "lost");
+    assert.equal(trackFreshness("PENDING_EXECUTION", true, null, now), "lost");
+    assert.equal(trackFreshness("OPEN", false, null, now), "off");
+    assert.equal(trackFreshness("DELIVERED", true, new Date(now), now), "ended");
+  });
+
+  it("丢掉无效坐标和超过一天的补传点", () => {
+    assert.deepEqual(validCoord(10.762622, 106.660172), { lat: 10.762622, lng: 106.660172 });
+    assert.equal(validCoord(0, 0), null);
+    assert.equal(validCoord(120, 10), null);
+    assert.equal(cleanRecordedAt("2026-10-13T07:00:00.000Z", now), null);
+    assert.ok(cleanRecordedAt("2026-10-14T07:30:00.000Z", now));
   });
 });
 

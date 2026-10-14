@@ -7,6 +7,7 @@ import { calcCommission, serializeMoney, toBigIntMoney } from "@/lib/money";
 import { advanceOrder, auditOrder } from "@/lib/market";
 import { buildDriverNotifyMessage } from "@/lib/notify";
 import { ORDER_STATUS_FLOW } from "@/lib/order";
+import { shareOnForStatus } from "@/lib/track";
 
 type Ctx = { params: { id: string } };
 
@@ -105,6 +106,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
         where: { id: order.id },
         data: {
           status: OrderStatus.MATCHED,
+          trackShareOn: true,
           matchedDriverId: driverId,
           dealPriceVnd: priceVnd,
           platformFeeVnd,
@@ -139,6 +141,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       where: { id: order.id },
       data: {
         status: OrderStatus.REJECTED,
+        trackShareOn: false,
         rejectReason: reason,
         statusLogs: {
           create: {
@@ -192,6 +195,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       where: { id: order.id },
       data: {
         status: OrderStatus.MATCHED,
+        trackShareOn: true,
         matchedDriverId: driverId,
         dealPriceVnd: bid.priceVnd,
         platformFeeVnd,
@@ -226,6 +230,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       where: { id: order.id },
       data: {
         status: toStatus,
+        trackShareOn: shareOnForStatus(toStatus),
         adminNote: body.adminNote ? String(body.adminNote) : order.adminNote,
         notifyNote: body.notifyNote ? String(body.notifyNote) : order.notifyNote,
         statusLogs: {

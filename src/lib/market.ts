@@ -13,6 +13,7 @@ import { genOrderNo } from "./order";
 import { assertOrderRegion } from "./regions";
 import { geocode, matchPair } from "./geo";
 import { volumeFromItems } from "./order-form";
+import { shareOnForStatus } from "./track";
 
 export type CargoItemInput = {
   lengthCm: number;
@@ -407,6 +408,7 @@ export async function auditOrder(orderId: string, adminId: string, pass: boolean
     where: { id: orderId },
     data: {
       status: OrderStatus.PENDING_EXECUTION,
+      trackShareOn: true,
       rejectReason: null,
       statusLogs: { create: { fromStatus: order.status, toStatus: OrderStatus.PENDING_EXECUTION, note: "平台审核通过", operatorId: adminId } },
     },
@@ -454,6 +456,7 @@ export async function advanceOrder(orderId: string, userId: string, asAdmin = fa
     where: { id: orderId },
     data: {
       status: next,
+      trackShareOn: shareOnForStatus(next),
       statusLogs: { create: { fromStatus: order.status, toStatus: next, note: "履约状态推进", operatorId: userId } },
     },
   });
@@ -468,6 +471,7 @@ export async function customerComplete(orderId: string, customerId: string) {
     where: { id: orderId },
     data: {
       status: OrderStatus.COMPLETED,
+      trackShareOn: false,
       statusLogs: { create: { fromStatus: order.status, toStatus: OrderStatus.COMPLETED, note: "客户确认完成", operatorId: customerId } },
     },
   });
@@ -502,6 +506,7 @@ export async function cancelOrder(orderId: string, customerId: string) {
     where: { id: orderId },
     data: {
       status: OrderStatus.CANCELLED,
+      trackShareOn: false,
       statusLogs: { create: { fromStatus: order.status, toStatus: OrderStatus.CANCELLED, note: "客户取消", operatorId: customerId } },
     },
   });

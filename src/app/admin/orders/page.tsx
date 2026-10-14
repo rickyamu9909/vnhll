@@ -103,7 +103,7 @@ export default function AdminOrdersPage() {
         </Link>
       </div>
       <Card size="small" style={{ marginBottom: 12 }}>
-        <Form form={form} layout="inline" size="small" onFinish={load} style={{ rowGap: 8 }}>
+        <Form className="admin-filters" form={form} layout="inline" size="small" onFinish={load} style={{ rowGap: 8 }}>
           <Form.Item name="q">
             <Input allowClear placeholder={t("order.order_no", "订单号")} style={{ width: 140 }} />
           </Form.Item>
@@ -184,11 +184,12 @@ export default function AdminOrdersPage() {
             { title: t("form.eta", "预计送达"), dataIndex: "etaAt", width: 130, render: (v) => (v ? dayjs(v).format("MM-DD HH:mm") : "-") },
             {
               title: t("order.op", "操作"),
-              width: 160,
+              width: 220,
               fixed: "right",
               render: (_, r) => (
                 <Space size={4}>
                   <Link href={`/admin/orders/${r.id}`}>{t("order.detail", "详情")}</Link>
+                  <Link href={`/admin/orders/${r.id}/track`}>{t("track.view", "查看轨迹")}</Link>
                   <Link href={`/admin/orders/new?from=${r.id}`}>{t("order.copy", "复制")}</Link>
                   <Link href={`/admin/orders/${r.id}/logs`}>{t("order.logs", "日志")}</Link>
                 </Space>

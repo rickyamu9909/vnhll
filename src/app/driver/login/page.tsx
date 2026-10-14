@@ -10,7 +10,7 @@ export default function DriverLoginPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   return (
-    <div style={{ maxWidth: 420, margin: "64px auto", padding: 16 }}>
+    <div className="auth-panel" style={{ maxWidth: 420, margin: "64px auto", padding: 16 }}>
       <Typography.Title level={3}>司机端登录</Typography.Title>
       <Card>
         <Form

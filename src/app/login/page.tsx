@@ -28,7 +28,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div style={{ maxWidth: 420, margin: "64px auto", padding: 16 }}>
+    <div className="auth-panel" style={{ maxWidth: 420, margin: "64px auto", padding: 16 }}>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
         <Typography.Title level={3} style={{ margin: 0 }}>
           {t("action.login", "登录")}

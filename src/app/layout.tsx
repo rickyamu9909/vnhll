@@ -1,10 +1,15 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { AppProviders } from "@/components/AppProviders";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "ANTS 越南散货车平台",
   description: "ANTS MVP - Customer & Admin Web",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -229,6 +229,7 @@ model Order {
   adminNote         String?
   rejectReason      String?
   notifyNote        String?
+  trackShareOn      Boolean     @default(false)
 
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
@@ -241,9 +242,25 @@ model Order {
   carrierBids   CarrierBid[]
   cargoItems    OrderCargoItem[]
   statusLogs    OrderStatusLog[]
+  trackPoints   OrderTrackPoint[]
 
   @@index([customerId, status])
   @@index([status, createdAt])
+}
+
+model OrderTrackPoint {
+  id         String   @id @default(cuid())
+  orderId    String
+  lat        Float
+  lng        Float
+  speedKmh   Float?
+  statusText String
+  recordedAt DateTime
+  createdAt  DateTime @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, recordedAt])
 }
 
 model OrderBid {
