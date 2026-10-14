@@ -4,12 +4,15 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button, Card, Table, Typography, message } from "antd";
 import { DriverShell } from "@/components/DriverShell";
+import { MatchSuggestions } from "@/components/MatchSuggestions";
+import { useI18n } from "@/components/I18nProvider";
 import { apiFetch } from "@/lib/client";
 import { formatVnd } from "@/lib/money";
 
 type Row = { id: string; location: string; expectedPriceVnd: string; status: string; negotiations: Array<{ id: string; status: string; priceVnd: string }> };
 
 export default function CapacityListPage() {
+  const { t } = useI18n();
   const [rows, setRows] = useState<Row[]>([]);
   const load = async () => {
     const res = await apiFetch<Row[]>("/api/driver/capacity");
@@ -22,11 +25,12 @@ export default function CapacityListPage() {
   return (
     <DriverShell>
       <div style={{ display: "flex", justifyContent: "space-between" }}>
-        <Typography.Title level={3}>我的运力</Typography.Title>
+        <Typography.Title level={3}>{t("cap.mine", "我的运力")}</Typography.Title>
         <Link href="/driver/capacity/new">
-          <Button type="primary">发布运力</Button>
+          <Button type="primary">{t("cap.title", "发布运力")}</Button>
         </Link>
       </div>
+      <MatchSuggestions />
       <Card>
         <Table
           rowKey="id"

@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { buildDeadlines, parseOrderBody, stripCustomer } from "../src/lib/market";
 import { calcByBps } from "../src/lib/money";
-import { orderToFormValues, pickupIsPast, savedToForm } from "../src/lib/order-form";
+import { orderToFormValues, pickupIsPast, savedToForm, volumeFromItems } from "../src/lib/order-form";
+import { haversineKm, matchPair } from "../src/lib/geo";
 import { assertOrderRegion, knownProvince, provinceOptions, REGION_COUNTS, wardsOf } from "../src/lib/regions";
 import { parseSavedAddress } from "../src/lib/saved-address";
 
@@ -69,6 +70,13 @@ describe("建单校验", () => {
     assert.equal(parsed.weightTons, 1.2);
     assert.equal(parsed.targetPriceVnd, BigInt(1500000));
     assert.equal(parsed.items[0].quantity, 2);
+    assert.equal(parsed.cargoVolumeM3, 0.96);
+  });
+
+  it("没有尺寸时使用手工总体积", () => {
+    const parsed = parseOrderBody(sampleBody({ cargoItems: [], cargoVolumeM3: 3.5 }));
+    assert.equal(parsed.cargoVolumeM3, 3.5);
+    assert.equal(volumeFromItems([{ lengthCm: 100, widthCm: 50, heightCm: 40, quantity: 1 }]), 0.2);
   });
 
   it("不填目标价时按询价处理", () => {
@@ -179,6 +187,28 @@ describe("历史订单复制与常用地址", () => {
       /不匹配/
     );
     assert.throws(() => parseSavedAddress({ province: HANOI, ward: "Phường Ba Đình" }), /请先填好/);
+  });
+});
+
+describe("5公里撮合", () => {
+  const origin = { lat: 21.0285, lng: 105.8542 };
+  const near = { lat: 21.0285 + 4 / 111, lng: 105.8542 };
+  const far = { lat: 21.0285 + 8 / 111, lng: 105.8542 };
+
+  it("有目的地偏好时，用客户送货地址对司机目的地", () => {
+    const hit = matchPair({ origin, dest: origin }, { location: far, dest: near });
+    assert.ok(hit);
+    assert.equal(hit.basis, "DEST");
+    assert.ok(hit.km <= 5);
+    assert.equal(matchPair({ origin, dest: origin }, { location: near, dest: far }), null);
+  });
+
+  it("没有目的地偏好时，用司机当前位置对客户接货地址", () => {
+    const hit = matchPair({ origin, dest: far }, { location: near });
+    assert.ok(hit);
+    assert.equal(hit.basis, "PICKUP");
+    assert.equal(matchPair({ origin, dest: near }, { location: far }), null);
+    assert.ok(haversineKm(origin, origin) < 0.001);
   });
 });
 

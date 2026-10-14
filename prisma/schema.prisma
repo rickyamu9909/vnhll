@@ -197,9 +197,13 @@ model Order {
   originProvince    String?
   originCity        String?
   originAddress     String?
+  originLat         Float?
+  originLng         Float?
   destProvince      String?
   destCity          String?
   destAddress       String?
+  destLat           Float?
+  destLng           Float?
   weightTons        Float?
   etaAt             DateTime?
   targetPriceVnd    BigInt?
@@ -336,6 +340,10 @@ model Capacity {
   availableFrom    DateTime
   availableTo      DateTime
   destPreference   String?
+  locationLat      Float?
+  locationLng      Float?
+  destLat          Float?
+  destLng          Float?
   vehicleType      VehicleType
   loadTons         Float
   cargoTypes       String
@@ -384,6 +392,20 @@ model CapacityNegotiation {
 
   @@index([capacityId])
   @@index([customerId])
+}
+
+model MatchSuggestion {
+  id         String   @id @default(cuid())
+  orderId    String
+  capacityId String
+  distanceKm Float
+  basis      String
+  status     String   @default("PENDING")
+  createdAt  DateTime @default(now())
+
+  @@unique([orderId, capacityId])
+  @@index([orderId, status])
+  @@index([capacityId, status])
 }
 
 model SystemConfig {

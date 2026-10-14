@@ -38,8 +38,8 @@ a {
 }
 
 .compact-form .ant-form-item-label > label {
-  font-size: 11px;
-  height: 16px;
+  font-size: 14px;
+  height: auto;
 }
 
 .compact-form .ant-input,

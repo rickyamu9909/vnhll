@@ -75,7 +75,12 @@ export function I18nProvider({ children, initialLocale = "zh" }: { children: Rea
       setLocale,
       loading,
       reload,
-      t: (key: string, fallback?: string) => dict[key] || UI_TEXT[locale][key] || fallback || key,
+      t: (key: string, fallback?: string) => {
+        const packed = dict[key];
+        const local = UI_TEXT[locale][key];
+        if (locale === "vi" && local && (!packed || packed === UI_TEXT.zh[key] || /[\u4e00-\u9fff]/.test(packed))) return local;
+        return packed || local || fallback || key;
+      },
     }),
     [locale, dict, loading, reload]
   );

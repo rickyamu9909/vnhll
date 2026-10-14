@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Button, Card, Form, Image, Input, Modal, Select, Space, Table, Tag, Typography, message } from "antd";
+import { Button, Card, Col, Form, Image, Input, Modal, Row, Select, Space, Table, Tag, Typography, message } from "antd";
 import { AdminShell } from "@/components/AdminShell";
+import { PhotoPicker } from "@/components/PhotoPicker";
 import { useI18n } from "@/components/I18nProvider";
 import { apiFetch, vehicleLabel } from "@/lib/client";
 
@@ -38,6 +39,7 @@ export default function AdminDriversPage() {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [form] = Form.useForm();
+  const [kind, setKind] = useState("PERSONAL");
   const [regs, setRegs] = useState<RegRow[]>([]);
   const [detail, setDetail] = useState<RegDetail | null>(null);
 
@@ -68,9 +70,10 @@ export default function AdminDriversPage() {
   };
 
   const createDriver = async (values: Record<string, string>) => {
+    const photoUrls = [1, 2, 3, 4, 5, 6].map((index) => values[`photo${index}`]).filter(Boolean);
     const res = await apiFetch("/api/admin/drivers", {
       method: "POST",
-      body: JSON.stringify({ ...values, status: "ACTIVE" }),
+      body: JSON.stringify({ ...values, mode: "account", kind, photoUrls, status: "ACTIVE" }),
     });
     if (!res.ok) {
       message.error(res.message || "创建失败");
@@ -167,31 +170,88 @@ export default function AdminDriversPage() {
         />
       </Card>
 
-      <Modal title="新建司机" open={open} onCancel={() => setOpen(false)} onOk={() => form.submit()} destroyOnClose>
-        <Form form={form} layout="vertical" onFinish={createDriver} initialValues={{ vehicleType: "TON_3_5" }}>
-          <Form.Item name="name" label="姓名" rules={[{ required: true }]}>
-            <Input />
-          </Form.Item>
-          <Form.Item name="phone" label="电话" rules={[{ required: true }]}>
-            <Input />
-          </Form.Item>
-          <Form.Item name="vehicleType" label="车型" rules={[{ required: true }]}>
-            <Select
-              options={["TON_1_5", "TON_3_5", "TON_7", "TON_10", "OTHER"].map((v) => ({
-                value: v,
-                label: vehicleLabel(v, t),
-              }))}
-            />
-          </Form.Item>
-          <Form.Item name="plateNumber" label="车牌">
-            <Input />
-          </Form.Item>
-          <Form.Item name="idNumber" label="证件号">
-            <Input />
-          </Form.Item>
-          <Form.Item name="notes" label="备注">
-            <Input.TextArea rows={2} />
-          </Form.Item>
+      <Modal title={t("action.create", "新建司机")} open={open} width={860} onCancel={() => setOpen(false)} onOk={() => form.submit()} destroyOnClose>
+        <Form form={form} layout="vertical" className="compact-form" onFinish={createDriver}>
+          <Row gutter={8}>
+            <Col span={8}>
+              <Form.Item label={t("driver.kind", "注册类型")}>
+                <Select
+                  value={kind}
+                  onChange={setKind}
+                  options={[
+                    { value: "PERSONAL", label: t("driver.personal", "个人司机") },
+                    { value: "COMPANY", label: t("driver.company", "运输公司") },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="username" label={t("auth.username", "登录账号")} rules={[{ required: true }]}>
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="password" label={t("auth.password", "密码")} rules={[{ required: true, min: 6 }]}>
+                <Input.Password />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="contactName" label={t("auth.contact", "联系人")} rules={[{ required: true }]}>
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="contactPhone" label={t("auth.contact_phone", "联系电话")} rules={[{ required: true }]}>
+                <Input />
+              </Form.Item>
+            </Col>
+          </Row>
+          {kind === "COMPANY" ? (
+            <Row gutter={8}>
+              <Col span={8}>
+                <Form.Item name="companyName" label={t("auth.company_name", "公司名称")} rules={[{ required: true }]}>
+                  <Input />
+                </Form.Item>
+              </Col>
+              <Col span={8}>
+                <Form.Item name="address" label={t("form.address", "地址")} rules={[{ required: true }]}>
+                  <Input />
+                </Form.Item>
+              </Col>
+              <Col span={8}>
+                <Form.Item name="licenseNo" label={t("driver.license", "营业执照")} rules={[{ required: true, message: t("form.required", "请上传") }]}>
+                  <PhotoPicker />
+                </Form.Item>
+              </Col>
+            </Row>
+          ) : (
+            <>
+              <Row gutter={8}>
+                {[
+                  ["idNumber", t("driver.id_card", "身份证")],
+                  ["driverLicense", t("driver.driver_license", "驾驶证")],
+                  ["vehicleLicense", t("driver.vehicle_license", "行驶证")],
+                  ["insuranceNote", t("driver.insurance", "保险证明")],
+                ].map(([name, label]) => (
+                  <Col span={6} key={name}>
+                    <Form.Item name={name} label={label} rules={[{ required: true, message: t("form.required", "请上传") }]}>
+                      <PhotoPicker />
+                    </Form.Item>
+                  </Col>
+                ))}
+              </Row>
+              <div className="order-section">{t("driver.photos", "车辆照片（6 张）")}</div>
+              <Row gutter={8}>
+                {[1, 2, 3, 4, 5, 6].map((index) => (
+                  <Col span={4} key={index}>
+                    <Form.Item name={`photo${index}`} rules={[{ required: true, message: t("form.required", "请上传") }]}>
+                      <PhotoPicker />
+                    </Form.Item>
+                  </Col>
+                ))}
+              </Row>
+            </>
+          )}
         </Form>
       </Modal>
       <Modal title="注册资料" open={!!detail} footer={null} width={760} onCancel={() => setDetail(null)}>

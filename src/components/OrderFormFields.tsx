@@ -5,7 +5,7 @@ import { Button, Col, DatePicker, Form, Input, InputNumber, Row, Select, Space, 
 import { MinusCircleOutlined, PlusOutlined } from "@ant-design/icons";
 import { useI18n } from "@/components/I18nProvider";
 import { apiFetch, vehicleLabel } from "@/lib/client";
-import { savedToForm, type SavedAddressInput } from "@/lib/order-form";
+import { savedToForm, volumeFromItems, type SavedAddressInput } from "@/lib/order-form";
 import { knownProvince, provinceOptions, wardsOf } from "@/lib/regions";
 
 const cargoTypes = [
@@ -22,6 +22,25 @@ const packages = [
   { value: "BAG", label: "袋装" },
   { value: "OTHER", label: "其他" },
 ];
+
+function VolumeField() {
+  const { t } = useI18n();
+  const form = Form.useFormInstance();
+  const items = Form.useWatch("cargoItems", form) as Array<{ lengthCm?: number; widthCm?: number; heightCm?: number; quantity?: number }> | undefined;
+  const computed = volumeFromItems(items || []);
+  useEffect(() => {
+    if (computed > 0) form.setFieldValue("cargoVolumeM3", Number(computed.toFixed(3)));
+  }, [computed, form]);
+  return (
+    <Row gutter={8}>
+      <Col xs={12} md={4}>
+        <Form.Item name="cargoVolumeM3" label={t("form.volume", "总体积(m³)")}>
+          <InputNumber min={0} step={0.001} style={{ width: "100%" }} disabled={computed > 0} />
+        </Form.Item>
+      </Col>
+    </Row>
+  );
+}
 
 type SavedRow = SavedAddressInput & { id: string; label: string };
 
@@ -161,6 +180,8 @@ export function OrderFormFields({ addressUserId, addressMode = "self" }: { addre
     value: v,
     label: vehicleLabel(v, t),
   }));
+  const cargoOptions = cargoTypes.map((item) => ({ value: item.value, label: t(`form.cargo.${item.value}`, item.label) }));
+  const packageOptions = packages.map((item) => ({ value: item.value, label: t(`form.pack.${item.value}`, item.label) }));
 
   return (
     <div className="compact-form">
@@ -226,12 +247,12 @@ export function OrderFormFields({ addressUserId, addressMode = "self" }: { addre
       <Row gutter={8}>
         <Col xs={12} md={4}>
           <Form.Item name="cargoType" label={t("form.type", "类型")}>
-            <Select options={cargoTypes} />
+            <Select options={cargoOptions} />
           </Form.Item>
         </Col>
         <Col xs={12} md={4}>
           <Form.Item name="packaging" label={t("form.pack", "包装")}>
-            <Select options={packages} />
+            <Select options={packageOptions} />
           </Form.Item>
         </Col>
         <Col xs={12} md={4}>
@@ -292,6 +313,7 @@ export function OrderFormFields({ addressUserId, addressMode = "self" }: { addre
           </div>
         )}
       </Form.List>
+      <VolumeField />
       <Row gutter={8}>
         <Col span={24}>
           <Form.Item name="note" label={t("form.note", "备注")}>

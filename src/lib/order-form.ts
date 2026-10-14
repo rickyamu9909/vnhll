@@ -17,6 +17,7 @@ export type OrderFormSource = {
   packaging?: string | null;
   weightTons?: number | null;
   cargoWeightKg?: number | null;
+  cargoVolumeM3?: number | null;
   vehicleType?: string | null;
   targetPriceVnd?: string | number | null;
   customerBidVnd?: string | number | null;
@@ -49,6 +50,7 @@ export function orderToFormValues(order: OrderFormSource) {
     cargoType: order.cargoType || "GENERAL",
     packaging: order.packaging || "CARTON",
     weightTons: order.weightTons || (order.cargoWeightKg ? order.cargoWeightKg / 1000 : undefined),
+    cargoVolumeM3: order.cargoVolumeM3 || undefined,
     vehicleType: order.vehicleType || undefined,
     targetPriceVnd: price ? Number(price) : undefined,
     abnormalNote: order.abnormalNote || undefined,
@@ -74,6 +76,17 @@ export function savedToForm(side: "origin" | "dest", addr: SavedAddressInput) {
     [`${side}Contact`]: addr.contact,
     [`${side}Phone`]: addr.phone,
   };
+}
+
+export function volumeFromItems(items: Array<{ lengthCm?: number; widthCm?: number; heightCm?: number; quantity?: number }>) {
+  return items.reduce((sum, item) => {
+    const lengthCm = Number(item.lengthCm) || 0;
+    const widthCm = Number(item.widthCm) || 0;
+    const heightCm = Number(item.heightCm) || 0;
+    const quantity = Number(item.quantity) || 0;
+    if (!lengthCm || !widthCm || !heightCm || !quantity) return sum;
+    return sum + (lengthCm * widthCm * heightCm * quantity) / 1_000_000;
+  }, 0);
 }
 
 export function pickupIsPast(pickupAt: string | Date | null | undefined, now = new Date()) {

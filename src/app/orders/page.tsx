@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Button, Card, Modal, Space, Table, Tag, Tooltip, Typography, message } from "antd";
 import dayjs from "dayjs";
 import { CustomerShell } from "@/components/CustomerShell";
+import { MatchSuggestions } from "@/components/MatchSuggestions";
 import { useI18n } from "@/components/I18nProvider";
 import { apiFetch, statusLabel, vehicleLabel } from "@/lib/client";
 import { formatVnd } from "@/lib/money";
@@ -74,6 +75,7 @@ export default function OrdersPage() {
           <Button type="primary">{t("nav.new_order", "新建订单")}</Button>
         </Link>
       </div>
+      <MatchSuggestions />
       <Card>
         <Table
           rowKey="id"

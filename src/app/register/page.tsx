@@ -53,17 +53,17 @@ export default function RegisterPage() {
             <Form.Item name="password" label={t("auth.password", "密码")} rules={[{ required: true, min: 6 }]}>
               <Input.Password />
             </Form.Item>
-            <Form.Item name="contactName" label="联系人">
+            <Form.Item name="contactName" label={t("auth.contact", "联系人")} rules={[{ required: true }]}>
               <Input />
             </Form.Item>
-            <Form.Item name="contactPhone" label="联系电话">
+            <Form.Item name="contactPhone" label={t("auth.contact_phone", "联系电话")} rules={[{ required: true }]}>
               <Input />
             </Form.Item>
-            <Form.Item name="taxCode" label="税号">
-              <Input />
+            <Form.Item name="taxCode" label={t("auth.tax", "税号")}>
+              <Input placeholder={t("form.optional", "选填")} />
             </Form.Item>
-            <Form.Item name="address" label="企业地址">
-              <Input.TextArea rows={2} />
+            <Form.Item name="address" label={t("auth.company_address", "企业地址")}>
+              <Input.TextArea rows={2} placeholder={t("form.optional", "选填")} />
             </Form.Item>
             <Button type="primary" htmlType="submit" block loading={loading}>
               {t("action.submit", "提交注册")}
