@@ -1,20 +1,39 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button, Card, Form, Input, InputNumber, Select, Table, Typography, message } from "antd";
 import { DriverShell } from "@/components/DriverShell";
+import { QueryFields } from "@/components/QueryFields";
 import { apiFetch } from "@/lib/client";
+import { includesText } from "@/lib/order-view";
 
 export default function TeamPage() {
-  const [subs, setSubs] = useState<Array<{ id: string; username: string; displayName?: string; phone?: string }>>([]);
+  const [subs, setSubs] = useState<Array<{ id: string; username: string; displayName?: string; phone?: string; plate?: string }>>([]);
+  const [query, setQuery] = useState<Record<string, string>>({});
   const load = async () => {
-    const res = await apiFetch<{ subs: Array<{ id: string; username: string; displayName?: string; phone?: string }> }>("/api/driver/team");
+    const res = await apiFetch<{
+      subs: Array<{ id: string; username: string; displayName?: string; phone?: string }>;
+      vehicles: Array<{ assignedUserId?: string | null; plateNumber: string }>;
+    }>("/api/driver/team");
     if (!res.ok) return;
-    setSubs(res.data?.subs || []);
+    const vehicles = res.data?.vehicles || [];
+    setSubs(
+      (res.data?.subs || []).map((sub) => ({
+        ...sub,
+        plate: vehicles
+          .filter((vehicle) => vehicle.assignedUserId === sub.id)
+          .map((vehicle) => vehicle.plateNumber)
+          .join(" "),
+      }))
+    );
   };
   useEffect(() => {
     load();
   }, []);
+  const shown = useMemo(
+    () => subs.filter((row) => includesText(row.displayName, query.name) && includesText(row.phone, query.phone) && includesText(row.username, query.account) && includesText(row.plate, query.plate)),
+    [subs, query]
+  );
   return (
     <DriverShell>
       <Typography.Title level={3}>司机与车辆</Typography.Title>
@@ -57,7 +76,16 @@ export default function TeamPage() {
         </Form>
       </Card>
       <Card>
-        <Table rowKey="id" dataSource={subs} columns={[{ title: "姓名", dataIndex: "displayName" }, { title: "账号", dataIndex: "username" }, { title: "电话", dataIndex: "phone" }]} />
+        <QueryFields
+          fields={[
+            { name: "name", placeholder: "姓名" },
+            { name: "phone", placeholder: "电话" },
+            { name: "account", placeholder: "账号" },
+            { name: "plate", placeholder: "车牌" },
+          ]}
+          onSearch={setQuery}
+        />
+        <Table rowKey="id" dataSource={shown} columns={[{ title: "姓名", dataIndex: "displayName" }, { title: "账号", dataIndex: "username" }, { title: "电话", dataIndex: "phone" }, { title: "车牌", dataIndex: "plate", render: (value) => value || "-" }]} />
       </Card>
     </DriverShell>
   );

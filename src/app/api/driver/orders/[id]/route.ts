@@ -4,7 +4,7 @@ import { getSession, requireCarrier } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { jsonFail, jsonOk } from "@/lib/api";
 import { serializeMoney, toBigIntMoney } from "@/lib/money";
-import { acceptPathA, advanceOrder, assignSub, placeBid, sweepDeadlines } from "@/lib/market";
+import { acceptPathA, advanceOrder, assignSub, placeBid, setDriverStage, sweepDeadlines } from "@/lib/market";
 
 type Ctx = { params: { id: string } };
 
@@ -22,6 +22,8 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
   });
   if (!order) return jsonFail("订单不存在", 404);
   const view = serializeMoney(order as unknown as Record<string, unknown>);
+  const mine = order.carrierBids.find((bid) => bid.bidderUserId === user!.id);
+  view.myBidPriceVnd = mine ? mine.priceVnd.toString() : null;
   view.carrierBids = order.carrierBids.map((b) => ({ ...b, priceVnd: b.priceVnd.toString() }));
   if (user!.role === "CARRIER_SUB") {
     delete view.platformFeeVnd;
@@ -46,6 +48,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     if (action === "bid") return jsonOk(await placeBid(params.id, user!.id, toBigIntMoney(body.priceVnd)));
     if (action === "assign") return jsonOk(await assignSub(params.id, user!.id, String(body.subUserId)));
     if (action === "advance") return jsonOk(await advanceOrder(params.id, user!.id, false));
+    if (action === "stage") return jsonOk(await setDriverStage(params.id, user!.id, String(body.stage || "")));
     return jsonFail("未知操作");
   } catch (e) {
     return jsonFail((e as Error).message || "操作失败");

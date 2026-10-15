@@ -34,3 +34,10 @@ const STATUS_ZH: Record<string, string> = {
 export function statusLabel(status: string, t: (k: string, f?: string) => string) {
   return t(`status.${status}`, STATUS_ZH[status] || status);
 }
+
+export function pathLabel(path?: string | null) {
+  if (path === "A") return "出价接单";
+  if (path === "B") return "询价报价";
+  if (path === "C") return "运力匹配";
+  return path || "-";
+}

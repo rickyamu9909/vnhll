@@ -1,17 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Button, Card, Modal, Space, Table, Typography, message } from "antd";
 import { DriverShell } from "@/components/DriverShell";
 import { MatchSuggestions } from "@/components/MatchSuggestions";
 import { useI18n } from "@/components/I18nProvider";
-import { apiFetch } from "@/lib/client";
+import { QueryFields } from "@/components/QueryFields";
+import { apiFetch, vehicleLabel } from "@/lib/client";
+import { includesText } from "@/lib/order-view";
 import { formatVnd } from "@/lib/money";
 
 type Row = {
   id: string;
   location: string;
+  destPreference?: string | null;
+  vehicleType?: string | null;
   expectedPriceVnd: string;
   status: string;
   orderId?: string | null;
@@ -23,6 +27,7 @@ const CAP_STATUS: Record<string, string> = { OPEN: "可匹配", MATCHED: "已匹
 export default function CapacityListPage() {
   const { t } = useI18n();
   const [rows, setRows] = useState<Row[]>([]);
+  const [query, setQuery] = useState<Record<string, string>>({});
   const load = async () => {
     const res = await apiFetch<Row[]>("/api/driver/capacity");
     if (!res.ok) message.error(res.message || "加载失败");
@@ -31,6 +36,18 @@ export default function CapacityListPage() {
   useEffect(() => {
     load();
   }, []);
+  const shown = useMemo(
+    () =>
+      rows.filter(
+        (row) =>
+          includesText(row.location, query.location) &&
+          includesText(row.destPreference, query.dest) &&
+          includesText(`${row.vehicleType || ""} ${row.vehicleType ? vehicleLabel(row.vehicleType, t) : ""}`, query.vehicle) &&
+          includesText(row.expectedPriceVnd, query.price) &&
+          includesText(`${row.status} ${CAP_STATUS[row.status] || ""}`, query.status)
+      ),
+    [rows, query, t]
+  );
   return (
     <DriverShell>
       <div style={{ display: "flex", justifyContent: "space-between" }}>
@@ -41,11 +58,23 @@ export default function CapacityListPage() {
       </div>
       <MatchSuggestions />
       <Card>
+        <QueryFields
+          fields={[
+            { name: "location", placeholder: "空车位置" },
+            { name: "dest", placeholder: "目的偏好" },
+            { name: "vehicle", placeholder: "车型" },
+            { name: "price", placeholder: "期望价" },
+            { name: "status", placeholder: "状态" },
+          ]}
+          onSearch={setQuery}
+        />
         <Table
           rowKey="id"
-          dataSource={rows}
+          dataSource={shown}
           columns={[
             { title: "空车位置", dataIndex: "location" },
+            { title: "目的偏好", dataIndex: "destPreference", render: (value) => value || "-" },
+            { title: "车型", dataIndex: "vehicleType", render: (value) => (value ? vehicleLabel(value, t) : "-") },
             { title: "期望价", dataIndex: "expectedPriceVnd", render: (v) => formatVnd(v) },
             { title: "状态", dataIndex: "status", render: (value) => CAP_STATUS[value] || value },
             {

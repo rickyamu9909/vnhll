@@ -1,24 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Button, Card, Modal, Space, Table, Tag, Tooltip, Typography, message } from "antd";
-import dayjs from "dayjs";
+import { Button, Card, Modal, Space, Table, Tabs, Tooltip, Typography, message } from "antd";
 import { CustomerShell } from "@/components/CustomerShell";
 import { MatchSuggestions } from "@/components/MatchSuggestions";
+import { orderColumns } from "@/components/OrderListBits";
+import { QueryFields } from "@/components/QueryFields";
 import { useI18n } from "@/components/I18nProvider";
-import { apiFetch, statusLabel, vehicleLabel } from "@/lib/client";
-import { formatVnd } from "@/lib/money";
-
-type OrderRow = {
-  id: string;
-  orderNo: string;
-  status: string;
-  cargoName: string;
-  vehicleType: string;
-  customerBidVnd: string;
-  pickupAt: string;
-};
+import { apiFetch } from "@/lib/client";
+import { CUSTOMER_NODE_TABS, ORDER_QUERY_FIELDS, orderInTab, orderMatches, type OrderListRow } from "@/lib/order-view";
 
 const PAGE_SIZES = [15, 25, 50, 100, 500];
 const EDITABLE = new Set(["PENDING_REVIEW", "REJECTED", "OPEN", "FAILED"]);
@@ -26,13 +17,15 @@ const CANCELABLE = new Set(["PENDING_REVIEW", "BIDDING", "REJECTED", "OPEN", "PE
 
 export default function OrdersPage() {
   const { t } = useI18n();
-  const [rows, setRows] = useState<OrderRow[]>([]);
+  const [rows, setRows] = useState<OrderListRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [pageSize, setPageSize] = useState(15);
+  const [tab, setTab] = useState("all");
+  const [query, setQuery] = useState<Record<string, string>>({});
 
   const load = async () => {
     setLoading(true);
-    const res = await apiFetch<OrderRow[]>("/api/orders");
+    const res = await apiFetch<OrderListRow[]>("/api/orders");
     setLoading(false);
     if (!res.ok) {
       message.error(res.message || "加载失败");
@@ -65,6 +58,8 @@ export default function OrdersPage() {
     });
   };
 
+  const shown = useMemo(() => rows.filter((row) => orderInTab(row, tab) && orderMatches(row, query)), [rows, tab, query]);
+
   return (
     <CustomerShell selected="orders">
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
@@ -77,11 +72,13 @@ export default function OrdersPage() {
       </div>
       <MatchSuggestions />
       <Card>
+        <Tabs activeKey={tab} onChange={setTab} items={CUSTOMER_NODE_TABS.map((item) => ({ key: item.key, label: item.label }))} />
+        <QueryFields fields={ORDER_QUERY_FIELDS} onSearch={setQuery} />
         <Table
           rowKey="id"
           loading={loading}
-          dataSource={rows}
-          scroll={{ x: 1080 }}
+          dataSource={shown}
+          scroll={{ x: 1800 }}
           pagination={{
             pageSize,
             showSizeChanger: true,
@@ -89,34 +86,7 @@ export default function OrdersPage() {
             showTotal: (total) => `共 ${total} 条`,
             onShowSizeChange: (_p, size) => setPageSize(size),
           }}
-          columns={[
-            { title: t("order.order_no", "订单号"), dataIndex: "orderNo", width: 180 },
-            {
-              title: t("order.status", "状态"),
-              dataIndex: "status",
-              width: 110,
-              render: (v) => <Tag>{statusLabel(v, t)}</Tag>,
-            },
-            { title: t("order.cargo_name", "货物"), dataIndex: "cargoName" },
-            {
-              title: t("order.vehicle_type", "车型"),
-              dataIndex: "vehicleType",
-              width: 90,
-              render: (v) => vehicleLabel(v, t),
-            },
-            {
-              title: t("order.customer_bid", "出价"),
-              dataIndex: "customerBidVnd",
-              width: 130,
-              render: (v) => `${formatVnd(v)}`,
-            },
-            {
-              title: t("order.pickup_at", "预约时间"),
-              dataIndex: "pickupAt",
-              width: 150,
-              render: (v) => dayjs(v).format("MM-DD HH:mm"),
-            },
-            {
+          columns={orderColumns(t, {
               title: "操作",
               width: 330,
               fixed: "right",
@@ -167,8 +137,7 @@ export default function OrdersPage() {
                   </Space>
                 );
               },
-            },
-          ]}
+            })}
         />
       </Card>
     </CustomerShell>

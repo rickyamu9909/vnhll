@@ -1,10 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Card, Table, Typography, message } from "antd";
 import { CustomerShell } from "@/components/CustomerShell";
-import { apiFetch } from "@/lib/client";
+import { QueryFields } from "@/components/QueryFields";
+import { apiFetch, vehicleLabel } from "@/lib/client";
+import { useI18n } from "@/components/I18nProvider";
+import { includesText } from "@/lib/order-view";
 import { formatVnd } from "@/lib/money";
 
 type Row = {
@@ -20,7 +23,9 @@ type Row = {
 };
 
 export default function CapacityHallPage() {
+  const { t } = useI18n();
   const [rows, setRows] = useState<Row[]>([]);
+  const [query, setQuery] = useState<Record<string, string>>({});
   useEffect(() => {
     (async () => {
       const res = await apiFetch<Row[]>("/api/capacity");
@@ -28,18 +33,40 @@ export default function CapacityHallPage() {
       else setRows(res.data || []);
     })();
   }, []);
+  const shown = useMemo(
+    () =>
+      rows.filter(
+        (row) =>
+          includesText(row.location, query.location) &&
+          includesText(row.destPreference, query.dest) &&
+          includesText(`${row.vehicleType} ${vehicleLabel(row.vehicleType, t)}`, query.vehicle) &&
+          includesText(row.publisherName, query.publisher) &&
+          includesText(row.expectedPriceVnd, query.price)
+      ),
+    [rows, query, t]
+  );
   return (
     <CustomerShell selected="capacity">
       <Typography.Title level={3}>运力大厅</Typography.Title>
       <Card>
+        <QueryFields
+          fields={[
+            { name: "location", placeholder: "空车位置" },
+            { name: "dest", placeholder: "目的偏好" },
+            { name: "vehicle", placeholder: "车型" },
+            { name: "publisher", placeholder: "发布人" },
+            { name: "price", placeholder: "期望价" },
+          ]}
+          onSearch={setQuery}
+        />
         <Table
           rowKey="id"
-          dataSource={rows}
+          dataSource={shown}
           pagination={{ pageSize: 15, showSizeChanger: true, pageSizeOptions: ["15", "25", "50", "100", "500"] }}
           columns={[
             { title: "空车位置", dataIndex: "location" },
             { title: "目的偏好", dataIndex: "destPreference", render: (v) => v || "-" },
-            { title: "车型", dataIndex: "vehicleType" },
+            { title: "车型", dataIndex: "vehicleType", render: (value) => vehicleLabel(value, t) },
             { title: "载重吨", dataIndex: "loadTons" },
             { title: "机场/港口", render: (_, r) => `${r.airportOk ? "可进机场" : "不可进机场"} / ${r.portOk ? "可进港口" : "不可进港口"}` },
             { title: "期望价", dataIndex: "expectedPriceVnd", render: (v) => formatVnd(v) },

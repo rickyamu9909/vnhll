@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Button, Card, DatePicker, Form, Input, Select, Space, Table, Tag, Typography, message } from "antd";
+import { Button, Card, DatePicker, Form, Input, Select, Space, Table, Tabs, Tag, Typography, message } from "antd";
 import dayjs from "dayjs";
 import { AdminShell } from "@/components/AdminShell";
 import { useI18n } from "@/components/I18nProvider";
-import { apiFetch, statusLabel } from "@/lib/client";
+import { apiFetch, pathLabel, statusLabel } from "@/lib/client";
+import { CUSTOMER_NODE_TABS, orderInTab } from "@/lib/order-view";
 import { formatVnd } from "@/lib/money";
 
 type OrderRow = {
@@ -61,6 +62,7 @@ export default function AdminOrdersPage() {
   const [form] = Form.useForm();
   const [rows, setRows] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [tab, setTab] = useState("all");
 
   const load = async (values?: Record<string, unknown>) => {
     const query = new URLSearchParams();
@@ -76,6 +78,8 @@ export default function AdminOrdersPage() {
     put("dest", data.dest);
     put("phone", data.phone);
     put("cargo", data.cargo);
+    put("path", data.path);
+    put("vehicle", data.vehicle);
     if (data.dateFrom) put("dateFrom", (data.dateFrom as dayjs.Dayjs).startOf("day").toISOString());
     if (data.dateTo) put("dateTo", (data.dateTo as dayjs.Dayjs).endOf("day").toISOString());
     setLoading(true);
@@ -89,6 +93,8 @@ export default function AdminOrdersPage() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const shown = useMemo(() => rows.filter((row) => orderInTab(row, tab)), [rows, tab]);
 
   return (
     <AdminShell>
@@ -130,6 +136,12 @@ export default function AdminOrdersPage() {
           <Form.Item name="cargo">
             <Input allowClear placeholder={t("order.cargo_q", "货物")} style={{ width: 100 }} />
           </Form.Item>
+          <Form.Item name="path">
+            <Input allowClear placeholder="路径" style={{ width: 110 }} />
+          </Form.Item>
+          <Form.Item name="vehicle">
+            <Input allowClear placeholder="车型" style={{ width: 100 }} />
+          </Form.Item>
           <Form.Item name="dateFrom">
             <DatePicker placeholder={t("order.date", "接货从")} />
           </Form.Item>
@@ -144,7 +156,7 @@ export default function AdminOrdersPage() {
               <Button
                 onClick={() => {
                   form.resetFields();
-                  setRows([]);
+                  load({});
                 }}
               >
                 {t("order.reset", "重置")}
@@ -154,18 +166,19 @@ export default function AdminOrdersPage() {
         </Form>
       </Card>
       <Card size="small">
+        <Tabs activeKey={tab} onChange={setTab} items={CUSTOMER_NODE_TABS.map((item) => ({ key: item.key, label: item.label }))} />
         <Table
           size="small"
           rowKey="id"
           loading={loading}
-          dataSource={rows}
+          dataSource={shown}
           scroll={{ x: 2200 }}
           pagination={{ pageSize: 15, showSizeChanger: true, pageSizeOptions: ["15", "25", "50", "100", "500"], showTotal: (total) => `共 ${total} 条` }}
           columns={[
             { title: t("order.order_no", "订单号"), dataIndex: "orderNo", width: 170, fixed: "left" },
             { title: t("order.customer", "客户"), width: 120, render: (_, r) => r.customer?.company?.companyName || r.customer?.displayName || r.customer?.username || "-" },
             { title: t("order.status", "状态"), dataIndex: "status", width: 110, render: (v) => <Tag>{statusLabel(v, t)}</Tag> },
-            { title: t("order.path", "路径"), dataIndex: "matchPath", width: 70, render: (v) => v || "-" },
+            { title: t("order.path", "路径"), dataIndex: "matchPath", width: 100, render: (v) => pathLabel(v) },
             { title: t("order.origin_province", "起运省/市"), dataIndex: "originProvince", width: 120, render: (v) => v || "-" },
             { title: t("order.origin_ward", "起运区/坊/社"), dataIndex: "originCity", width: 130, render: (v) => v || "-" },
             { title: t("order.origin_address", "起运地址"), width: 160, render: (_, r) => r.originAddress || r.pickupAddress || "-" },

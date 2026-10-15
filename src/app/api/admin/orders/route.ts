@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { OrderStatus, Prisma, UserRole, UserStatus } from "@prisma/client";
+import { MatchPath, OrderStatus, Prisma, UserRole, UserStatus, VehicleType } from "@prisma/client";
 import { getSession, requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { jsonFail, jsonOk } from "@/lib/api";
@@ -19,6 +19,8 @@ export async function GET(req: NextRequest) {
   const dest = req.nextUrl.searchParams.get("dest")?.trim();
   const phone = req.nextUrl.searchParams.get("phone")?.trim();
   const cargo = req.nextUrl.searchParams.get("cargo")?.trim();
+  const path = req.nextUrl.searchParams.get("path")?.trim();
+  const vehicle = req.nextUrl.searchParams.get("vehicle")?.trim();
   const dateFrom = req.nextUrl.searchParams.get("dateFrom");
   const dateTo = req.nextUrl.searchParams.get("dateTo");
   const and: Prisma.OrderWhereInput[] = [];
@@ -67,6 +69,19 @@ export async function GET(req: NextRequest) {
     });
   }
   if (cargo) and.push({ cargoName: { contains: cargo, mode: "insensitive" } });
+  if (path) {
+    const text = path.toUpperCase();
+    const code = text === "A" || path.includes("出价") ? MatchPath.A : text === "B" || path.includes("询价") || path.includes("报价") ? MatchPath.B : text === "C" || path.includes("运力") ? MatchPath.C : null;
+    if (code) and.push({ matchPath: code });
+  }
+  if (vehicle) {
+    const types = new Set((Object.values(VehicleType) as string[]).filter((item) => item.toLowerCase().includes(vehicle.toLowerCase())));
+    if (vehicle.includes("1.5")) types.add(VehicleType.TON_1_5);
+    if (vehicle.includes("3.5")) types.add(VehicleType.TON_3_5);
+    if (vehicle.includes("7")) types.add(VehicleType.TON_7);
+    if (vehicle.includes("10")) types.add(VehicleType.TON_10);
+    if (types.size) and.push({ vehicleType: { in: [...types] as VehicleType[] } });
+  }
   if (dateFrom || dateTo) {
     and.push({
       pickupAt: {

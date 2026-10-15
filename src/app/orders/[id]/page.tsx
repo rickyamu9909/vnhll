@@ -168,7 +168,9 @@ export default function OrderDetailPage() {
           <Descriptions.Item label={t("order.status", "状态")}>
             <Tag>{statusLabel(order.status, t)}</Tag>
           </Descriptions.Item>
-          <Descriptions.Item label="匹配路径">{order.matchPath || "-"}</Descriptions.Item>
+          <Descriptions.Item label="匹配路径">
+            {order.matchPath === "A" ? "出价接单" : order.matchPath === "B" ? "询价报价" : order.matchPath === "C" ? "运力匹配（选择司机已发布的空车运力）" : order.matchPath || "-"}
+          </Descriptions.Item>
           <Descriptions.Item label={t("order.customer_bid", "您的出价")}>
             {order.targetPriceVnd || order.customerBidVnd ? `${formatVnd(order.targetPriceVnd || order.customerBidVnd)} VND` : "未出价（询价）"}
           </Descriptions.Item>

@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button, Card, Col, Form, Image, Input, Modal, Row, Select, Space, Table, Tag, Typography, message } from "antd";
 import { AdminShell } from "@/components/AdminShell";
+import { QueryFields } from "@/components/QueryFields";
 import { PhotoPicker } from "@/components/PhotoPicker";
 import { useI18n } from "@/components/I18nProvider";
 import { apiFetch, vehicleLabel } from "@/lib/client";
+import { includesText } from "@/lib/order-view";
 
 type RegRow = { id: string; username: string; displayName?: string; role: string; carrierKind?: string; status: string; companyName?: string; phone?: string };
 type RegDetail = RegRow & {
@@ -42,6 +44,7 @@ export default function AdminDriversPage() {
   const [kind, setKind] = useState("PERSONAL");
   const [regs, setRegs] = useState<RegRow[]>([]);
   const [detail, setDetail] = useState<RegDetail | null>(null);
+  const [query, setQuery] = useState<Record<string, string>>({});
 
   const load = async () => {
     setLoading(true);
@@ -85,6 +88,29 @@ export default function AdminDriversPage() {
     load();
   };
 
+  const shownRegs = useMemo(
+    () =>
+      regs.filter(
+        (row) =>
+          includesText(row.companyName || row.displayName || row.username, query.name) &&
+          includesText(row.username, query.account) &&
+          includesText(row.phone, query.phone) &&
+          includesText(row.carrierKind, query.kind)
+      ),
+    [regs, query]
+  );
+  const shownDrivers = useMemo(
+    () =>
+      rows.filter(
+        (row) =>
+          includesText(row.name, query.name) &&
+          includesText(row.phone, query.phone) &&
+          includesText(row.plateNumber, query.plate) &&
+          includesText(`${row.vehicleType} ${vehicleLabel(row.vehicleType, t)}`, query.vehicle)
+      ),
+    [rows, query, t]
+  );
+
   return (
     <AdminShell>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
@@ -95,11 +121,24 @@ export default function AdminDriversPage() {
           {t("action.create", "新建司机")}
         </Button>
       </div>
+      <Card size="small" style={{ marginBottom: 16 }}>
+        <QueryFields
+          fields={[
+            { name: "name", placeholder: "姓名/公司" },
+            { name: "phone", placeholder: "电话" },
+            { name: "account", placeholder: "账号" },
+            { name: "plate", placeholder: "车牌" },
+            { name: "vehicle", placeholder: "车型" },
+            { name: "kind", placeholder: "类型" },
+          ]}
+          onSearch={setQuery}
+        />
+      </Card>
       <Card title="注册司机" size="small" style={{ marginBottom: 16 }}>
         <Table
           size="small"
           rowKey="id"
-          dataSource={regs}
+          dataSource={shownRegs}
           pagination={{ pageSize: 10 }}
           columns={[
             { title: "名称", render: (_, r) => r.companyName || r.displayName || r.username },
@@ -129,7 +168,7 @@ export default function AdminDriversPage() {
         <Table
           rowKey="id"
           loading={loading}
-          dataSource={rows}
+          dataSource={shownDrivers}
           columns={[
             { title: "姓名", dataIndex: "name" },
             { title: "电话", dataIndex: "phone" },

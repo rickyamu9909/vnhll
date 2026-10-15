@@ -37,7 +37,7 @@ export async function geocode(query: string): Promise<Coord | null> {
   const text = query.replace(/\s+/g, " ").trim();
   if (text.length < 2) return null;
   const known = placeFromText(text);
-  if (known) return { lat: known.lat, lng: known.lng };
+  if (known?.lat != null && known.lng != null) return { lat: known.lat, lng: known.lng };
   if (geocodeCache.has(text)) return geocodeCache.get(text) || null;
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 2500);

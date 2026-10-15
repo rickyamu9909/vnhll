@@ -1,0 +1,1112 @@
+[
+  {
+    "id": "yard-asia-grand-dragon",
+    "kind": "YARD",
+    "name": "ASIA GRAND DRAGON",
+    "province": "",
+    "ward": "",
+    "address": "ASIA GRAND DRAGON",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "yard-cang-binh-duong",
+    "kind": "YARD",
+    "name": "Cảng Bình Dương",
+    "province": "",
+    "ward": "",
+    "address": "Cảng Bình Dương",
+    "lat": 10.98,
+    "lng": 106.68
+  },
+  {
+    "id": "yard-cang-dong-nai",
+    "kind": "YARD",
+    "name": "Cảng Đồng Nai",
+    "province": "",
+    "ward": "",
+    "address": "Cảng Đồng Nai",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "yard-cang-gemalink",
+    "kind": "YARD",
+    "name": "Cảng Gemalink",
+    "province": "",
+    "ward": "",
+    "address": "Cảng Gemalink",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "yard-cat-lai",
+    "kind": "YARD",
+    "name": "Cát Lái",
+    "province": "",
+    "ward": "",
+    "address": "Cát Lái",
+    "lat": 10.7636,
+    "lng": 106.7858
+  },
+  {
+    "id": "yard-cat-lai-giang-nam",
+    "kind": "YARD",
+    "name": "Cát lái Giang Nam",
+    "province": "",
+    "ward": "",
+    "address": "Cát lái Giang Nam",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "yard-chan-that-long-thanh-my",
+    "kind": "YARD",
+    "name": "Chân Thật Long Thạnh Mỹ",
+    "province": "",
+    "ward": "",
+    "address": "Chân Thật Long Thạnh Mỹ",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "yard-chan-that-song-than",
+    "kind": "YARD",
+    "name": "Chân Thật Sóng Thần",
+    "province": "",
+    "ward": "",
+    "address": "Chân Thật Sóng Thần",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "yard-depot-5c",
+    "kind": "YARD",
+    "name": "DEPOT 5C",
+    "province": "",
+    "ward": "",
+    "address": "DEPOT 5C",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "yard-depot-nam-khanh-dn",
+    "kind": "YARD",
+    "name": "Depot Nam Khánh DN",
+    "province": "",
+    "ward": "",
+    "address": "Depot Nam Khánh DN",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "yard-depot-nam-khanh-st",
+    "kind": "YARD",
+    "name": "Depot Nam Khánh ST",
+    "province": "",
+    "ward": "",
+    "address": "Depot Nam Khánh ST",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "yard-depot-topasia",
+    "kind": "YARD",
+    "name": "DEPOT TOPASIA",
+    "province": "",
+    "ward": "",
+    "address": "DEPOT TOPASIA",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "yard-depot-tt",
+    "kind": "YARD",
+    "name": "Depot TT",
+    "province": "",
+    "ward": "",
+    "address": "Depot TT",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "yard-g-fortune-di-an",
+    "kind": "YARD",
+    "name": "G-FORTUNE Dĩ An",
+    "province": "",
+    "ward": "",
+    "address": "G-FORTUNE Dĩ An",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "yard-g-fortune-dong-an",
+    "kind": "YARD",
+    "name": "G-FORTUNE Đồng An",
+    "province": "",
+    "ward": "",
+    "address": "G-FORTUNE Đồng An",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "yard-g-fortune-thu-duc",
+    "kind": "YARD",
+    "name": "G-FORTUNE Thủ Đức",
+    "province": "",
+    "ward": "",
+    "address": "G-FORTUNE Thủ Đức",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "yard-g-fortune-thu-duc-3",
+    "kind": "YARD",
+    "name": "G-FORTUNE Thủ Đức 3",
+    "province": "",
+    "ward": "",
+    "address": "G-FORTUNE Thủ Đức 3",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "yard-green-logs-depot",
+    "kind": "YARD",
+    "name": "GREEN LOGS DEPOT",
+    "province": "",
+    "ward": "",
+    "address": "GREEN LOGS DEPOT",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "yard-green-phu-thuan",
+    "kind": "YARD",
+    "name": "Green Phú Thuận",
+    "province": "",
+    "ward": "",
+    "address": "Green Phú Thuận",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "yard-hoang-gia-depot",
+    "kind": "YARD",
+    "name": "Hoàng Gia Depot",
+    "province": "",
+    "ward": "",
+    "address": "Hoàng Gia Depot",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "yard-hoang-hai-phu-huu-depot",
+    "kind": "YARD",
+    "name": "HOÀNG HẢI PHÚ HỮU DEPOT",
+    "province": "",
+    "ward": "",
+    "address": "HOÀNG HẢI PHÚ HỮU DEPOT",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "yard-icd-phuc-long-2",
+    "kind": "YARD",
+    "name": "ICD Phúc Long 2",
+    "province": "",
+    "ward": "",
+    "address": "ICD Phúc Long 2",
+    "lat": 10.905,
+    "lng": 106.838
+  },
+  {
+    "id": "yard-icd-phuoc-long-01",
+    "kind": "YARD",
+    "name": "ICD Phước Long 01",
+    "province": "",
+    "ward": "",
+    "address": "ICD Phước Long 01",
+    "lat": 10.905,
+    "lng": 106.838
+  },
+  {
+    "id": "yard-icd-phuoc-long-3-icd3",
+    "kind": "YARD",
+    "name": "ICD Phước Long 3 (ICD3)",
+    "province": "",
+    "ward": "",
+    "address": "ICD Phước Long 3 (ICD3)",
+    "lat": 10.905,
+    "lng": 106.84
+  },
+  {
+    "id": "yard-icd-sotrans",
+    "kind": "YARD",
+    "name": "ICD SOTRANS",
+    "province": "",
+    "ward": "",
+    "address": "ICD SOTRANS",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "yard-icd-tan-cang-song-than",
+    "kind": "YARD",
+    "name": "ICD Tân Cảng Sóng Thần",
+    "province": "",
+    "ward": "",
+    "address": "ICD Tân Cảng Sóng Thần",
+    "lat": 10.8985,
+    "lng": 106.7648
+  },
+  {
+    "id": "yard-icd-tay-nam-tanamexco",
+    "kind": "YARD",
+    "name": "ICD Tây Nam TANAMEXCO",
+    "province": "",
+    "ward": "",
+    "address": "ICD Tây Nam TANAMEXCO",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "yard-icd-transimex",
+    "kind": "YARD",
+    "name": "ICD TRANSIMEX",
+    "province": "",
+    "ward": "",
+    "address": "ICD TRANSIMEX",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "yard-in-out-fdi",
+    "kind": "YARD",
+    "name": "IN-OUT FDI",
+    "province": "",
+    "ward": "",
+    "address": "IN-OUT FDI",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "yard-in-out-lg",
+    "kind": "YARD",
+    "name": "IN-OUT LG",
+    "province": "",
+    "ward": "",
+    "address": "IN-OUT LG",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "yard-macstar-tan-van",
+    "kind": "YARD",
+    "name": "Macstar Tan Van",
+    "province": "",
+    "ward": "",
+    "address": "Macstar Tan Van",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "yard-medlog-depot",
+    "kind": "YARD",
+    "name": "MEDLOG DEPOT",
+    "province": "",
+    "ward": "",
+    "address": "MEDLOG DEPOT",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "yard-phu-hung-depot",
+    "kind": "YARD",
+    "name": "Phú Hưng Depot",
+    "province": "",
+    "ward": "",
+    "address": "Phú Hưng Depot",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "yard-phuc-xuan-tan-van",
+    "kind": "YARD",
+    "name": "Phúc Xuân Tân Vạn",
+    "province": "",
+    "ward": "",
+    "address": "Phúc Xuân Tân Vạn",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "yard-phuong-dong-depot",
+    "kind": "YARD",
+    "name": "Phương Đông Depot",
+    "province": "",
+    "ward": "",
+    "address": "Phương Đông Depot",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "yard-sinovnl-cat-lai",
+    "kind": "YARD",
+    "name": "SINOVNL Cát Lái",
+    "province": "",
+    "ward": "",
+    "address": "SINOVNL Cát Lái",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "yard-sinovnl-tan-van",
+    "kind": "YARD",
+    "name": "SINOVNL Tân Vạn",
+    "province": "",
+    "ward": "",
+    "address": "SINOVNL Tân Vạn",
+    "lat": 10.912,
+    "lng": 106.812
+  },
+  {
+    "id": "yard-solog-phu-loi",
+    "kind": "YARD",
+    "name": "Solog phú lợi",
+    "province": "",
+    "ward": "",
+    "address": "Solog phú lợi",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "yard-solog-song-than",
+    "kind": "YARD",
+    "name": "Solog Sóng Thần",
+    "province": "",
+    "ward": "",
+    "address": "Solog Sóng Thần",
+    "lat": 10.9,
+    "lng": 106.77
+  },
+  {
+    "id": "yard-solog-thu-duc-ap622",
+    "kind": "YARD",
+    "name": "Solog Thủ Đức - AP622",
+    "province": "",
+    "ward": "",
+    "address": "Solog Thủ Đức - AP622",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "yard-sowatco-long-binh",
+    "kind": "YARD",
+    "name": "SOWATCO LONG BINH",
+    "province": "",
+    "ward": "",
+    "address": "SOWATCO LONG BINH",
+    "lat": 10.89,
+    "lng": 106.851
+  },
+  {
+    "id": "yard-spitc-port",
+    "kind": "YARD",
+    "name": "SPITC PORT",
+    "province": "",
+    "ward": "",
+    "address": "SPITC PORT",
+    "lat": 10.752,
+    "lng": 106.715
+  },
+  {
+    "id": "yard-ssl-depot",
+    "kind": "YARD",
+    "name": "SSL DEPOT",
+    "province": "",
+    "ward": "",
+    "address": "SSL DEPOT",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "yard-tai-su-dung",
+    "kind": "YARD",
+    "name": "TÁI SỬ DỤNG",
+    "province": "",
+    "ward": "",
+    "address": "TÁI SỬ DỤNG",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "yard-tam-cang-depot",
+    "kind": "YARD",
+    "name": "Tam Cang Depot",
+    "province": "",
+    "ward": "",
+    "address": "Tam Cang Depot",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "yard-tam-cang-depot-2",
+    "kind": "YARD",
+    "name": "Tâm Cảng DEPOT",
+    "province": "",
+    "ward": "",
+    "address": "Tâm Cảng DEPOT",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "yard-tan-cang-hiep-luc",
+    "kind": "YARD",
+    "name": "Tân Cảng Hiệp Lực",
+    "province": "",
+    "ward": "",
+    "address": "Tân Cảng Hiệp Lực",
+    "lat": 10.766,
+    "lng": 106.781
+  },
+  {
+    "id": "yard-tan-cang-my-thuy",
+    "kind": "YARD",
+    "name": "Tân Cảng Mỹ Thủy",
+    "province": "",
+    "ward": "",
+    "address": "Tân Cảng Mỹ Thủy",
+    "lat": 10.768,
+    "lng": 106.77
+  },
+  {
+    "id": "yard-tan-cang-my-thuy-2",
+    "kind": "YARD",
+    "name": "Tân Cảng Mỹ Thủy 2",
+    "province": "",
+    "ward": "",
+    "address": "Tân Cảng Mỹ Thủy 2",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "yard-tan-cang-rach-chiec",
+    "kind": "YARD",
+    "name": "TÂN CẢNG RẠCH CHIẾC",
+    "province": "",
+    "ward": "",
+    "address": "TÂN CẢNG RẠCH CHIẾC",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "yard-tan-cang-suoi-tien",
+    "kind": "YARD",
+    "name": "Tân Cảng Suối Tiên",
+    "province": "",
+    "ward": "",
+    "address": "Tân Cảng Suối Tiên",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "yard-tan-van-smart-depot",
+    "kind": "YARD",
+    "name": "Tân Vạn SMART DEPOT",
+    "province": "",
+    "ward": "",
+    "address": "Tân Vạn SMART DEPOT",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "yard-tay-nam-binh-duong",
+    "kind": "YARD",
+    "name": "Tây Nam Bình Dương",
+    "province": "",
+    "ward": "",
+    "address": "Tây Nam Bình Dương",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "yard-vict",
+    "kind": "YARD",
+    "name": "VICT",
+    "province": "",
+    "ward": "",
+    "address": "VICT",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "yard-vietfracht-depot",
+    "kind": "YARD",
+    "name": "VIETFRACHT DEPOT",
+    "province": "",
+    "ward": "",
+    "address": "VIETFRACHT DEPOT",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "yard-vinalink-depot-q7",
+    "kind": "YARD",
+    "name": "VINALINK DEPOT Q7",
+    "province": "",
+    "ward": "",
+    "address": "VINALINK DEPOT Q7",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "yard-vinalink-transport-depot",
+    "kind": "YARD",
+    "name": "VINALINK TRANSPORT DEPOT",
+    "province": "",
+    "ward": "",
+    "address": "VINALINK TRANSPORT DEPOT",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "port-a-chuan-depot",
+    "kind": "PORT",
+    "name": "A CHUAN DEPOT",
+    "province": "",
+    "ward": "",
+    "address": "A CHUAN DEPOT",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "port-asia-grand-dragon",
+    "kind": "PORT",
+    "name": "ASIA GRAND DRAGON",
+    "province": "",
+    "ward": "",
+    "address": "ASIA GRAND DRAGON",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "port-cang-ben-nghe",
+    "kind": "PORT",
+    "name": "Cảng Bến Nghé",
+    "province": "",
+    "ward": "",
+    "address": "Cảng Bến Nghé",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "port-cang-container-tan-cang-cai-mep-tcct",
+    "kind": "PORT",
+    "name": "Cảng container Tân Cảng - Cái Mép (TCCT)",
+    "province": "",
+    "ward": "",
+    "address": "Cảng container Tân Cảng - Cái Mép (TCCT)",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "port-cang-dong-nai",
+    "kind": "PORT",
+    "name": "CANG DONG NAI",
+    "province": "",
+    "ward": "",
+    "address": "CANG DONG NAI",
+    "lat": 10.95,
+    "lng": 106.82
+  },
+  {
+    "id": "port-cang-dong-nai-2",
+    "kind": "PORT",
+    "name": "Cảng Đồng Nai",
+    "province": "",
+    "ward": "",
+    "address": "Cảng Đồng Nai",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "port-cang-gemalink",
+    "kind": "PORT",
+    "name": "Cảng Gemalink",
+    "province": "",
+    "ward": "",
+    "address": "Cảng Gemalink",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "port-cang-quoc-te-tan-cang-cai-mep-tcit",
+    "kind": "PORT",
+    "name": "Cảng Quốc tế Tân cảng - Cái Mép (TCIT)",
+    "province": "",
+    "ward": "",
+    "address": "Cảng Quốc tế Tân cảng - Cái Mép (TCIT)",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "port-cang-tan-cang-cai-mep-thi-vai-tctt",
+    "kind": "PORT",
+    "name": "Cảng Tân Cảng - Cái Mép Thị Vải (TCTT)",
+    "province": "",
+    "ward": "",
+    "address": "Cảng Tân Cảng - Cái Mép Thị Vải (TCTT)",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "port-cat-lai",
+    "kind": "PORT",
+    "name": "Cát Lái",
+    "province": "",
+    "ward": "",
+    "address": "Cát Lái",
+    "lat": 10.7636,
+    "lng": 106.7858
+  },
+  {
+    "id": "port-cat-lai-giang-nam",
+    "kind": "PORT",
+    "name": "Cát lái Giang Nam",
+    "province": "",
+    "ward": "",
+    "address": "Cát lái Giang Nam",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "port-chan-that-long-thanh-my",
+    "kind": "PORT",
+    "name": "Chân Thật Long Thạnh Mỹ",
+    "province": "",
+    "ward": "",
+    "address": "Chân Thật Long Thạnh Mỹ",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "port-chan-that-song-than",
+    "kind": "PORT",
+    "name": "Chân Thật Sóng Thần",
+    "province": "",
+    "ward": "",
+    "address": "Chân Thật Sóng Thần",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "port-cmit-port",
+    "kind": "PORT",
+    "name": "CMIT PORT",
+    "province": "",
+    "ward": "",
+    "address": "CMIT PORT",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "port-depot-5a-cat-lai",
+    "kind": "PORT",
+    "name": "DEPOT 5A CÁT LÁI",
+    "province": "",
+    "ward": "",
+    "address": "DEPOT 5A CÁT LÁI",
+    "lat": 10.77,
+    "lng": 106.778
+  },
+  {
+    "id": "port-depot-eng-kong",
+    "kind": "PORT",
+    "name": "Depot Eng Kong",
+    "province": "",
+    "ward": "",
+    "address": "Depot Eng Kong",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "port-depot-nam-khanh-dn",
+    "kind": "PORT",
+    "name": "Depot Nam Khánh DN",
+    "province": "",
+    "ward": "",
+    "address": "Depot Nam Khánh DN",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "port-depot-nam-khanh-st",
+    "kind": "PORT",
+    "name": "Depot Nam Khánh ST",
+    "province": "",
+    "ward": "",
+    "address": "Depot Nam Khánh ST",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "port-depot-topasia",
+    "kind": "PORT",
+    "name": "DEPOT TOPASIA",
+    "province": "",
+    "ward": "",
+    "address": "DEPOT TOPASIA",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "port-depot-tt",
+    "kind": "PORT",
+    "name": "Depot TT",
+    "province": "",
+    "ward": "",
+    "address": "Depot TT",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "port-e-depot-tan-binh",
+    "kind": "PORT",
+    "name": "E-Depot Tân Bình",
+    "province": "",
+    "ward": "",
+    "address": "E-Depot Tân Bình",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "port-g-fortune-dong-an",
+    "kind": "PORT",
+    "name": "G-FORTUNE Đồng An",
+    "province": "",
+    "ward": "",
+    "address": "G-FORTUNE Đồng An",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "port-g-fortune-thu-duc",
+    "kind": "PORT",
+    "name": "G-FORTUNE Thủ Đức",
+    "province": "",
+    "ward": "",
+    "address": "G-FORTUNE Thủ Đức",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "port-gf-tan-dong-hiep",
+    "kind": "PORT",
+    "name": "GF TÂN ĐÔNG HIỆP",
+    "province": "",
+    "ward": "",
+    "address": "GF TÂN ĐÔNG HIỆP",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "port-green-logs-depot",
+    "kind": "PORT",
+    "name": "GREEN LOGS DEPOT",
+    "province": "",
+    "ward": "",
+    "address": "GREEN LOGS DEPOT",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "port-icd-phuc-long-2",
+    "kind": "PORT",
+    "name": "ICD Phúc Long 2",
+    "province": "",
+    "ward": "",
+    "address": "ICD Phúc Long 2",
+    "lat": 10.905,
+    "lng": 106.838
+  },
+  {
+    "id": "port-icd-phuc-long-3",
+    "kind": "PORT",
+    "name": "ICD Phúc Long 3",
+    "province": "",
+    "ward": "",
+    "address": "ICD Phúc Long 3",
+    "lat": 10.906,
+    "lng": 106.84
+  },
+  {
+    "id": "port-icd-phuoc-long-01",
+    "kind": "PORT",
+    "name": "ICD Phước Long 01",
+    "province": "",
+    "ward": "",
+    "address": "ICD Phước Long 01",
+    "lat": 10.905,
+    "lng": 106.838
+  },
+  {
+    "id": "port-icd-phuoc-long-3-icd3",
+    "kind": "PORT",
+    "name": "ICD Phước Long 3 (ICD3)",
+    "province": "",
+    "ward": "",
+    "address": "ICD Phước Long 3 (ICD3)",
+    "lat": 10.905,
+    "lng": 106.84
+  },
+  {
+    "id": "port-icd-sotrans",
+    "kind": "PORT",
+    "name": "ICD SOTRANS",
+    "province": "",
+    "ward": "",
+    "address": "ICD SOTRANS",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "port-icd-tan-cang-song-than",
+    "kind": "PORT",
+    "name": "ICD Tân Cảng Sóng Thần",
+    "province": "",
+    "ward": "",
+    "address": "ICD Tân Cảng Sóng Thần",
+    "lat": 10.8985,
+    "lng": 106.7648
+  },
+  {
+    "id": "port-icd-tay-nam-tanamexco",
+    "kind": "PORT",
+    "name": "ICD Tây Nam TANAMEXCO",
+    "province": "",
+    "ward": "",
+    "address": "ICD Tây Nam TANAMEXCO",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "port-in-out-fdi",
+    "kind": "PORT",
+    "name": "IN-OUT FDI",
+    "province": "",
+    "ward": "",
+    "address": "IN-OUT FDI",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "port-in-out-lg",
+    "kind": "PORT",
+    "name": "IN-OUT LG",
+    "province": "",
+    "ward": "",
+    "address": "IN-OUT LG",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "port-kho-duc-tin-trang-bang",
+    "kind": "PORT",
+    "name": "KHO ĐỨC TÍN - TRẢNG BÀNG",
+    "province": "",
+    "ward": "",
+    "address": "KHO ĐỨC TÍN - TRẢNG BÀNG",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "port-kho-tbs-tan-van",
+    "kind": "PORT",
+    "name": "KHO TBS TÂN VẠN",
+    "province": "",
+    "ward": "",
+    "address": "KHO TBS TÂN VẠN",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "port-phu-hung-depot",
+    "kind": "PORT",
+    "name": "Phú Hưng Depot",
+    "province": "",
+    "ward": "",
+    "address": "Phú Hưng Depot",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "port-phuc-xuan-tan-van",
+    "kind": "PORT",
+    "name": "Phúc Xuân Tân Vạn",
+    "province": "",
+    "ward": "",
+    "address": "Phúc Xuân Tân Vạn",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "port-sinovnl-cat-lai",
+    "kind": "PORT",
+    "name": "SINOVNL Cát Lái",
+    "province": "",
+    "ward": "",
+    "address": "SINOVNL Cát Lái",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "port-sinovnl-tan-van",
+    "kind": "PORT",
+    "name": "SINOVNL Tân Vạn",
+    "province": "",
+    "ward": "",
+    "address": "SINOVNL Tân Vạn",
+    "lat": 10.912,
+    "lng": 106.812
+  },
+  {
+    "id": "port-sitc-giang-nam",
+    "kind": "PORT",
+    "name": "SITC GIANG NAM",
+    "province": "",
+    "ward": "",
+    "address": "SITC GIANG NAM",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "port-solog-song-than",
+    "kind": "PORT",
+    "name": "Solog Sóng Thần",
+    "province": "",
+    "ward": "",
+    "address": "Solog Sóng Thần",
+    "lat": 10.9,
+    "lng": 106.77
+  },
+  {
+    "id": "port-solog-thu-duc-ap622",
+    "kind": "PORT",
+    "name": "Solog Thủ Đức - AP622",
+    "province": "",
+    "ward": "",
+    "address": "Solog Thủ Đức - AP622",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "port-spitc-port",
+    "kind": "PORT",
+    "name": "SPITC PORT",
+    "province": "",
+    "ward": "",
+    "address": "SPITC PORT",
+    "lat": 10.752,
+    "lng": 106.715
+  },
+  {
+    "id": "port-ssit",
+    "kind": "PORT",
+    "name": "SSIT",
+    "province": "",
+    "ward": "",
+    "address": "SSIT",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "port-ssl-depot",
+    "kind": "PORT",
+    "name": "SSL DEPOT",
+    "province": "",
+    "ward": "",
+    "address": "SSL DEPOT",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "port-tai-su-dung",
+    "kind": "PORT",
+    "name": "TÁI SỬ DỤNG",
+    "province": "",
+    "ward": "",
+    "address": "TÁI SỬ DỤNG",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "port-tan-cang-hiep-luc",
+    "kind": "PORT",
+    "name": "Tân Cảng Hiệp Lực",
+    "province": "",
+    "ward": "",
+    "address": "Tân Cảng Hiệp Lực",
+    "lat": 10.766,
+    "lng": 106.781
+  },
+  {
+    "id": "port-tan-cang-hiep-phuoc",
+    "kind": "PORT",
+    "name": "Tân Cảng Hiệp Phước",
+    "province": "",
+    "ward": "",
+    "address": "Tân Cảng Hiệp Phước",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "port-tan-cang-my-thuy",
+    "kind": "PORT",
+    "name": "Tân Cảng Mỹ Thủy",
+    "province": "",
+    "ward": "",
+    "address": "Tân Cảng Mỹ Thủy",
+    "lat": 10.768,
+    "lng": 106.77
+  },
+  {
+    "id": "port-tan-cang-my-thuy-2",
+    "kind": "PORT",
+    "name": "Tân Cảng Mỹ Thủy 2",
+    "province": "",
+    "ward": "",
+    "address": "Tân Cảng Mỹ Thủy 2",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "port-tbs-tan-van",
+    "kind": "PORT",
+    "name": "TBS Tân Vạn",
+    "province": "",
+    "ward": "",
+    "address": "TBS Tân Vạn",
+    "lat": 10.912,
+    "lng": 106.812
+  },
+  {
+    "id": "port-vict",
+    "kind": "PORT",
+    "name": "VICT",
+    "province": "",
+    "ward": "",
+    "address": "VICT",
+    "lat": null,
+    "lng": null
+  },
+  {
+    "id": "port-vietfracht-depot",
+    "kind": "PORT",
+    "name": "VIETFRACHT DEPOT",
+    "province": "",
+    "ward": "",
+    "address": "VIETFRACHT DEPOT",
+    "lat": null,
+    "lng": null
+  }
+]

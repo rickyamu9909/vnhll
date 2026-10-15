@@ -52,6 +52,8 @@ export async function GET(req: NextRequest) {
   return jsonOk(
     orders.map((o) => {
       const view = serializeMoney(o as unknown as Record<string, unknown>);
+      const mine = o.carrierBids.find((bid) => bid.bidderUserId === user!.id);
+      view.myBidPriceVnd = mine ? mine.priceVnd.toString() : null;
       view.carrierBids = o.carrierBids.map((b) => ({ ...b, priceVnd: b.priceVnd.toString() }));
       return visiblePrice(user!.role, o.matchPath, view);
     })

@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { Button, Card, Descriptions, Form, InputNumber, Select, Space, Typography, message } from "antd";
+import { Alert, Button, Card, Descriptions, Form, InputNumber, Select, Space, Typography, message } from "antd";
 import { DriverShell } from "@/components/DriverShell";
 import { BackButton } from "@/components/BackButton";
-import { apiFetch, statusLabel } from "@/lib/client";
+import { apiFetch, pathLabel, statusLabel } from "@/lib/client";
 import { useI18n } from "@/components/I18nProvider";
 import { formatVnd } from "@/lib/money";
+import { DRIVER_ISSUE, DRIVER_STAGES, stageLabel } from "@/lib/stages";
 
 type Detail = {
   id: string;
@@ -26,6 +27,8 @@ type Detail = {
   driverIncomeVnd?: string | null;
   cargoName: string;
   weightTons?: number;
+  myBidPriceVnd?: string | null;
+  driverStage?: string | null;
 };
 
 export default function DriverOrderDetail() {
@@ -75,8 +78,14 @@ export default function DriverOrderDetail() {
       </Space>
       <Card>
         <Descriptions column={1} bordered size="small">
-          <Descriptions.Item label="状态">{statusLabel(order.status, t)}</Descriptions.Item>
-          <Descriptions.Item label="路径">{order.matchPath}</Descriptions.Item>
+          <Descriptions.Item label="状态">
+            {order.myBidPriceVnd && order.status === "OPEN" ? "已报价" : statusLabel(order.status, t)}
+            {order.driverStage ? ` · ${stageLabel(order.driverStage)}` : ""}
+          </Descriptions.Item>
+          <Descriptions.Item label="路径">
+            {pathLabel(order.matchPath)}
+            {order.matchPath === "C" ? "（客户选择司机已发布的空车运力成交）" : ""}
+          </Descriptions.Item>
           <Descriptions.Item label="平台价">{order.targetPriceVnd ? `${formatVnd(order.targetPriceVnd)} VND` : "不显示 / 询价"}</Descriptions.Item>
           <Descriptions.Item label="成交价">{order.dealPriceVnd ? formatVnd(order.dealPriceVnd) : "-"}</Descriptions.Item>
           <Descriptions.Item label="佣金">{order.platformFeeVnd ? formatVnd(order.platformFeeVnd) : "-"}</Descriptions.Item>
@@ -89,27 +98,42 @@ export default function DriverOrderDetail() {
           </Descriptions.Item>
           <Descriptions.Item label="货物">{order.cargoName}</Descriptions.Item>
         </Descriptions>
+        {order.myBidPriceVnd ? (
+          <Alert style={{ marginTop: 16 }} type="info" showIcon message={`已报价 ${formatVnd(order.myBidPriceVnd)} VND。再次进入会看到这条报价，可以直接修改，不必重复提交同一价格。`} />
+        ) : null}
         <Space style={{ marginTop: 16 }} wrap>
+          <Button href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.pickupAddress)}`} target="_blank">
+            导航到提货点
+          </Button>
+          <Button href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.deliveryAddress)}`} target="_blank">
+            导航到目的地
+          </Button>
           {order.status === "OPEN" && order.matchPath === "A" && order.targetPriceVnd ? (
             <Button type="primary" onClick={() => act("accept")}>
               接单
             </Button>
           ) : null}
           {order.status === "OPEN" && order.matchPath === "B" ? (
-            <Form
-              layout="inline"
-              onFinish={(v) => act("bid", { priceVnd: v.priceVnd })}
-            >
+            <Form key={order.myBidPriceVnd || "new"} layout="inline" initialValues={{ priceVnd: order.myBidPriceVnd ? Number(order.myBidPriceVnd) : undefined }} onFinish={(v) => act("bid", { priceVnd: v.priceVnd })}>
               <Form.Item name="priceVnd" rules={[{ required: true }]}>
                 <InputNumber min={1} placeholder="报价 VND" />
               </Form.Item>
               <Button htmlType="submit" type="primary">
-                提交报价
+                {order.myBidPriceVnd ? "修改报价" : "提交报价"}
               </Button>
             </Form>
           ) : null}
-          {order.status === "PENDING_EXECUTION" || order.status === "IN_TRANSIT" ? (
-            <Button onClick={() => act("advance")}>推进状态</Button>
+          {["PENDING_EXECUTION", "IN_TRANSIT", "DELIVERED", "MATCHED"].includes(order.status) ? (
+            <Space wrap>
+              {DRIVER_STAGES.map((stage) => (
+                <Button key={stage.key} type={order.driverStage === stage.key ? "primary" : "default"} disabled={order.status === "DELIVERED" && stage.key !== "delivered"} onClick={() => act("stage", { stage: stage.key })}>
+                  {stage.label}
+                </Button>
+              ))}
+              <Button danger type={order.driverStage === DRIVER_ISSUE.key ? "primary" : "default"} onClick={() => act("stage", { stage: DRIVER_ISSUE.key })}>
+                {DRIVER_ISSUE.label}
+              </Button>
+            </Space>
           ) : null}
         </Space>
         {subs.length > 0 && (order.status === "PENDING_EXECUTION" || order.status === "IN_TRANSIT") ? (

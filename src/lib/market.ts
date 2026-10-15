@@ -13,6 +13,7 @@ import { genOrderNo } from "./order";
 import { assertOrderRegion } from "./regions";
 import { geocode, matchPair } from "./geo";
 import { volumeFromItems } from "./order-form";
+import { DRIVER_ISSUE, DRIVER_STAGES } from "./stages";
 import { shareOnForStatus } from "./track";
 import { capacityMatchBlock, placeById, placeFromText } from "./places";
 
@@ -519,6 +520,33 @@ export async function advanceOrder(orderId: string, userId: string, asAdmin = fa
     },
   });
   await logOp(userId, "ORDER_ADVANCE", "order", orderId, next);
+  return updated;
+}
+
+export async function setDriverStage(orderId: string, userId: string, stageKey: string) {
+  const order = await prisma.order.findUnique({ where: { id: orderId } });
+  if (!order) throw new Error("订单不存在");
+  if (order.acceptedByUserId !== userId && order.assignedToUserId !== userId) throw new Error("无权更新该订单");
+  const allowed: OrderStatus[] = [OrderStatus.PENDING_EXECUTION, OrderStatus.IN_TRANSIT, OrderStatus.DELIVERED, OrderStatus.MATCHED];
+  if (!allowed.includes(order.status)) throw new Error("当前状态不能更新运输节点");
+  const issue = stageKey === DRIVER_ISSUE.key;
+  const spec = DRIVER_STAGES.find((stage) => stage.key === stageKey);
+  if (!issue && !spec) throw new Error("未知节点");
+  if (order.status === OrderStatus.DELIVERED && stageKey !== "delivered" && !issue) {
+    throw new Error("已送达后不能改回前面的节点");
+  }
+  const next = (issue ? order.status : spec!.status) as OrderStatus;
+  const label = issue ? DRIVER_ISSUE.label : spec!.label;
+  const updated = await prisma.order.update({
+    where: { id: orderId },
+    data: {
+      driverStage: stageKey,
+      status: next,
+      trackShareOn: shareOnForStatus(next),
+      statusLogs: { create: { fromStatus: order.status, toStatus: next, note: `司机更新节点：${label}`, operatorId: userId } },
+    },
+  });
+  await logOp(userId, "ORDER_STAGE", "order", orderId, stageKey);
   return updated;
 }
 

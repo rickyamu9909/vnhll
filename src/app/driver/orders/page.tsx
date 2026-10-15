@@ -1,38 +1,42 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { Card, Table, Tag, Typography, message } from "antd";
+import { useEffect, useMemo, useState } from "react";
+import { Card, Table, Tabs, Typography, message } from "antd";
 import { DriverShell } from "@/components/DriverShell";
-import { apiFetch, statusLabel } from "@/lib/client";
+import { orderColumns, orderLink } from "@/components/OrderListBits";
+import { QueryFields } from "@/components/QueryFields";
+import { apiFetch } from "@/lib/client";
 import { useI18n } from "@/components/I18nProvider";
+import { DRIVER_NODE_TABS, ORDER_QUERY_FIELDS, orderInTab, orderMatches, type OrderListRow } from "@/lib/order-view";
 
 export default function MyDriverOrders() {
   const { t } = useI18n();
-  const [rows, setRows] = useState<Array<{ id: string; orderNo: string; status: string }>>([]);
+  const [rows, setRows] = useState<OrderListRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState("all");
+  const [query, setQuery] = useState<Record<string, string>>({});
   useEffect(() => {
     (async () => {
-      const res = await apiFetch<Array<{ id: string; orderNo: string; status: string }>>("/api/driver/orders?scope=mine");
+      const res = await apiFetch<OrderListRow[]>("/api/driver/orders?scope=mine");
       setLoading(false);
       if (!res.ok) message.error(res.message || "加载失败");
       else setRows(res.data || []);
     })();
   }, []);
+  const shown = useMemo(() => rows.filter((row) => orderInTab(row, tab) && orderMatches(row, query)), [rows, tab, query]);
   return (
     <DriverShell>
       <Typography.Title level={3}>我的订单</Typography.Title>
       <Card>
+        <Tabs activeKey={tab} onChange={setTab} items={DRIVER_NODE_TABS.map((item) => ({ key: item.key, label: item.label }))} />
+        <QueryFields fields={ORDER_QUERY_FIELDS} onSearch={setQuery} />
         <Table
           rowKey="id"
           loading={loading}
-          dataSource={rows}
-          pagination={{ pageSize: 15, showSizeChanger: true, pageSizeOptions: ["15", "25", "50", "100", "500"] }}
-          columns={[
-            { title: "订单号", dataIndex: "orderNo" },
-            { title: "状态", dataIndex: "status", render: (v) => <Tag>{statusLabel(v, t)}</Tag> },
-            { title: "操作", render: (_, r) => <Link href={`/driver/orders/${r.id}`}>详情</Link> },
-          ]}
+          dataSource={shown}
+          scroll={{ x: 1600 }}
+          pagination={{ pageSize: 15, showSizeChanger: true, pageSizeOptions: ["15", "25", "50", "100", "500"], showTotal: (total) => `共 ${total} 条` }}
+          columns={orderColumns(t, { title: "操作", width: 90, fixed: "right", render: (_, row) => orderLink(`/driver/orders/${row.id}`, "详情") })}
         />
       </Card>
     </DriverShell>

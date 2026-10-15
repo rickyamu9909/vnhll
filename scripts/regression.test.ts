@@ -114,13 +114,13 @@ describe("建单校验", () => {
         originProvince: "",
         originCity: "",
         originAddress: "",
-        originPlaceId: "port-catlai",
+        originPlaceId: "port-cat-lai",
       })
     );
-    assert.equal(parsed.originProvince, "Thành phố Hồ Chí Minh");
-    assert.equal(parsed.originCity, "Phường Cát Lái");
-    assert.match(parsed.originAddress, /Cát Lái/);
-    assert.equal(parsed.originLat, placeById("port-catlai")?.lat);
+    assert.equal(parsed.originProvince, "");
+    assert.equal(parsed.originCity, "");
+    assert.equal(parsed.originAddress, "Cát Lái");
+    assert.equal(parsed.originLat, placeById("port-cat-lai")?.lat);
     assert.equal(capacityMatchBlock("MATCHED"), "这条运力已经匹配成功，不能再次发起。请到订单里查看结果");
     assert.equal(capacityMatchBlock("OPEN"), null);
   });
