@@ -7,6 +7,7 @@ import { useI18n } from "@/components/I18nProvider";
 import { apiFetch, vehicleLabel } from "@/lib/client";
 import { savedToForm, volumeFromItems, type SavedAddressInput } from "@/lib/order-form";
 import { knownProvince, provinceOptions, wardsOf } from "@/lib/regions";
+import { FREIGHT_PLACES } from "@/lib/places";
 
 const cargoTypes = [
   { value: "GENERAL", label: "普通货" },
@@ -43,6 +44,37 @@ function VolumeField() {
 }
 
 type SavedRow = SavedAddressInput & { id: string; label: string };
+
+function PlaceSelect({ side }: { side: "origin" | "dest" }) {
+  const { t } = useI18n();
+  const form = Form.useFormInstance();
+  const options = FREIGHT_PLACES.map((place) => ({
+    value: place.id,
+    label: `${place.kind === "YARD" ? t("form.yard", "堆场") : t("form.port", "码头")} · ${place.name}`,
+  }));
+  return (
+    <Col xs={24} md={8}>
+      <Form.Item name={side === "origin" ? "originPlaceId" : "destPlaceId"} label={t("form.place", "堆场/码头")}>
+        <Select
+          allowClear
+          showSearch
+          optionFilterProp="label"
+          placeholder={t("form.place_ph", "可不填详细地址")}
+          options={options}
+          onChange={(id) => {
+            const place = FREIGHT_PLACES.find((item) => item.id === id);
+            if (!place) return;
+            form.setFieldsValue(
+              side === "origin"
+                ? { originProvince: place.province, originCity: place.ward, originAddress: place.address, originLat: place.lat, originLng: place.lng }
+                : { destProvince: place.province, destCity: place.ward, destAddress: place.address, destLat: place.lat, destLng: place.lng }
+            );
+          }}
+        />
+      </Form.Item>
+    </Col>
+  );
+}
 
 function RegionSelects({ side }: { side: "origin" | "dest" }) {
   const { t } = useI18n();
@@ -192,12 +224,15 @@ export function OrderFormFields({ addressUserId, addressMode = "self" }: { addre
         <AddressBook side="origin" userId={addressMode === "customer" ? addressUserId : undefined} />
       )}
       <Row gutter={8}>
+        <PlaceSelect side="origin" />
         <RegionSelects side="origin" />
         <Col xs={12} md={5}>
           <Form.Item name="originAddress" label={t("form.address", "详细地址")}>
-            <Input placeholder={t("form.street", "街道、门牌")} />
+            <Input placeholder={t("form.place_or_street", "选了堆场或码头后可以不填")} />
           </Form.Item>
         </Col>
+        <Form.Item name="originLat" hidden><Input /></Form.Item>
+        <Form.Item name="originLng" hidden><Input /></Form.Item>
         <Col xs={12} md={3}>
           <Form.Item name="pickupAt" label={t("form.pickup_at", "接货时间")}>
             <DatePicker showTime={{ format: "HH" }} format="YYYY-MM-DD HH" style={{ width: "100%" }} />
@@ -220,12 +255,15 @@ export function OrderFormFields({ addressUserId, addressMode = "self" }: { addre
         <AddressBook side="dest" userId={addressMode === "customer" ? addressUserId : undefined} />
       )}
       <Row gutter={8}>
+        <PlaceSelect side="dest" />
         <RegionSelects side="dest" />
         <Col xs={12} md={5}>
           <Form.Item name="destAddress" label={t("form.address", "详细地址")}>
-            <Input placeholder={t("form.street", "街道、门牌")} />
+            <Input placeholder={t("form.place_or_street", "选了堆场或码头后可以不填")} />
           </Form.Item>
         </Col>
+        <Form.Item name="destLat" hidden><Input /></Form.Item>
+        <Form.Item name="destLng" hidden><Input /></Form.Item>
         <Col xs={12} md={3}>
           <Form.Item name="etaAt" label={t("form.eta", "预计送达")}>
             <DatePicker showTime={{ format: "HH" }} format="YYYY-MM-DD HH" style={{ width: "100%" }} />

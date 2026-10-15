@@ -8,6 +8,14 @@ import { apiFetch } from "@/lib/client";
 type ActiveOrder = { id: string; orderNo: string; status: string };
 type Queued = { orderId: string; lat: number; lng: number; speedKmh: number | null; statusText: string; recordedAt: string };
 
+type NativeShell = { isNative?: boolean; setStatus?: (text: string) => void; start?: () => void };
+
+function nativeShell(): NativeShell | null {
+  if (typeof window === "undefined") return null;
+  const shell = (window as Window & { DriverShell?: NativeShell }).DriverShell;
+  return shell?.isNative ? shell : null;
+}
+
 const QUEUE_KEY = "ants_track_queue";
 const STATUS_KEYS = ["track.going", "track.picked", "track.moving", "track.unloading", "track.arrived", "track.issue"] as const;
 
@@ -36,8 +44,36 @@ export function TrackReporter() {
   const [statusKey, setStatusKey] = useState<(typeof STATUS_KEYS)[number]>("track.moving");
   const statusRef = useRef(statusKey);
   statusRef.current = statusKey;
+  const [native, setNative] = useState(false);
 
   useEffect(() => {
+    const shell = nativeShell();
+    setNative(!!shell);
+    if (!shell) return;
+    shell.start?.();
+    let stopped = false;
+    const sync = async () => {
+      const res = await apiFetch<ActiveOrder[]>("/api/driver/tracking");
+      if (stopped) return;
+      const active = res.ok ? res.data || [] : [];
+      setOrders(active);
+      setPhase(active.length ? "on" : "empty");
+      shell.setStatus?.(t(statusRef.current, "运输中"));
+    };
+    sync();
+    const timer = window.setInterval(sync, 15000);
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+    };
+  }, [t]);
+
+  useEffect(() => {
+    nativeShell()?.setStatus?.(t(statusKey, "运输中"));
+  }, [statusKey, t]);
+
+  useEffect(() => {
+    if (nativeShell()) return;
     let stopped = false;
     let timer = 0;
     let delay = 30000;
@@ -125,7 +161,11 @@ export function TrackReporter() {
             onChange={setStatusKey}
             options={STATUS_KEYS.map((key) => ({ value: key, label: t(key, key) }))}
           />
-          <Typography.Text type="secondary">{t("track.keep_open", "请保持本页打开，每 30 秒上报一次。关掉浏览器后会停止。")}</Typography.Text>
+          <Typography.Text type="secondary">
+            {native
+              ? t("track.native_on", "切到其他应用或锁屏后仍会每 30 秒上报。通知栏里的停止可以结束。")
+              : t("track.keep_open", "请保持本页打开，每 30 秒上报一次。关掉浏览器后会停止。")}
+          </Typography.Text>
         </Space>
       }
     />

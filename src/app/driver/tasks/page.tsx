@@ -10,9 +10,11 @@ import { useI18n } from "@/components/I18nProvider";
 export default function TasksPage() {
   const { t } = useI18n();
   const [rows, setRows] = useState<Array<{ id: string; orderNo: string; status: string }>>([]);
+  const [loading, setLoading] = useState(true);
   useEffect(() => {
     (async () => {
       const res = await apiFetch<Array<{ id: string; orderNo: string; status: string }>>("/api/driver/orders?scope=tasks");
+      setLoading(false);
       if (!res.ok) message.error(res.message || "加载失败");
       else setRows(res.data || []);
     })();
@@ -23,6 +25,8 @@ export default function TasksPage() {
       <Card>
         <Table
           rowKey="id"
+          loading={loading}
+          locale={{ emptyText: "暂无待执行任务。轨迹条上的订单会出现在这里。" }}
           dataSource={rows}
           columns={[
             { title: "订单号", dataIndex: "orderNo" },

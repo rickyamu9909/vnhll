@@ -6,6 +6,7 @@ import { orderToFormValues, pickupIsPast, savedToForm, volumeFromItems } from ".
 import { haversineKm, matchPair } from "../src/lib/geo";
 import { cleanRecordedAt, trackFreshness, validCoord } from "../src/lib/track";
 import { assertOrderRegion, knownProvince, provinceOptions, REGION_COUNTS, wardsOf } from "../src/lib/regions";
+import { capacityMatchBlock, placeById } from "../src/lib/places";
 import { parseSavedAddress } from "../src/lib/saved-address";
 
 const HANOI = "Thành phố Hà Nội";
@@ -105,6 +106,23 @@ describe("建单校验", () => {
     assert.equal(parsed.weightTons, 0);
     assert.equal(parsed.etaAt, null);
     assert.ok(parsed.pickupAt instanceof Date);
+  });
+
+  it("只选堆场或码头时补上地址和坐标", () => {
+    const parsed = parseOrderBody(
+      sampleBody({
+        originProvince: "",
+        originCity: "",
+        originAddress: "",
+        originPlaceId: "port-catlai",
+      })
+    );
+    assert.equal(parsed.originProvince, "Thành phố Hồ Chí Minh");
+    assert.equal(parsed.originCity, "Phường Cát Lái");
+    assert.match(parsed.originAddress, /Cát Lái/);
+    assert.equal(parsed.originLat, placeById("port-catlai")?.lat);
+    assert.equal(capacityMatchBlock("MATCHED"), "这条运力已经匹配成功，不能再次发起。请到订单里查看结果");
+    assert.equal(capacityMatchBlock("OPEN"), null);
   });
 
   it("缺少电话时拒绝，省和坊不匹配时拒绝", () => {

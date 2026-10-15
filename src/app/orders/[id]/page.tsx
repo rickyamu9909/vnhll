@@ -222,7 +222,7 @@ export default function OrderDetailPage() {
                         });
                         if (!res.ok) message.error(res.message || "确认失败");
                         else {
-                          message.success("已确认，等待平台审核");
+                          message.success("已确认，订单进入待执行");
                           load();
                         }
                       }}

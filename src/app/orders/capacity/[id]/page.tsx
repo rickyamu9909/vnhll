@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Button, Card, Form, InputNumber, Space, Switch, Typography, message } from "antd";
+import { Alert, Button, Card, Form, InputNumber, Space, Switch, Typography, message } from "antd";
 import dayjs from "dayjs";
 import { CustomerShell } from "@/components/CustomerShell";
 import { BackButton } from "@/components/BackButton";
@@ -16,6 +16,13 @@ export default function MatchCapacityPage() {
   const { t } = useI18n();
   const [acceptExpected, setAcceptExpected] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [block, setBlock] = useState<string | null>(null);
+  useEffect(() => {
+    (async () => {
+      const res = await apiFetch<{ block: string | null }>(`/api/capacity/${id}`);
+      if (res.ok) setBlock(res.data?.block || null);
+    })();
+  }, [id]);
   return (
     <CustomerShell selected="capacity">
       <Space style={{ marginBottom: 16 }}>
@@ -24,6 +31,7 @@ export default function MatchCapacityPage() {
           {t("match.title", "发起匹配")}
         </Typography.Title>
       </Space>
+      {block ? <Alert type="error" showIcon style={{ marginBottom: 16 }} message={block} /> : null}
       <Card>
         <Form
           layout="vertical"
@@ -46,8 +54,8 @@ export default function MatchCapacityPage() {
                 message.error(res.message || t("match.fail", "提交失败"));
                 return;
               }
-              message.success(acceptExpected ? t("match.ok_audit", "已接受期望价，等待平台审核") : t("match.ok_talk", "已发出协商价"));
-              router.push("/orders/matches");
+              message.success(acceptExpected ? t("match.ok_audit", "匹配成功，订单已进入待执行") : t("match.ok_talk", "已发出协商价"));
+              router.push(acceptExpected ? "/orders" : "/orders/capacity");
             } finally {
               setLoading(false);
             }
@@ -62,7 +70,7 @@ export default function MatchCapacityPage() {
             </Form.Item>
           ) : null}
           <OrderFormFields />
-          <Button type="primary" htmlType="submit" loading={loading}>
+          <Button type="primary" htmlType="submit" loading={loading} disabled={!!block}>
             {t("action.submit", "提交")}
           </Button>
         </Form>

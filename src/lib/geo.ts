@@ -1,4 +1,8 @@
+import { placeFromText } from "./places";
+
 export type Coord = { lat: number; lng: number };
+
+const geocodeCache = new Map<string, Coord | null>();
 
 export const MATCH_RADIUS_KM = 5;
 
@@ -32,8 +36,11 @@ export function matchPair(
 export async function geocode(query: string): Promise<Coord | null> {
   const text = query.replace(/\s+/g, " ").trim();
   if (text.length < 2) return null;
+  const known = placeFromText(text);
+  if (known) return { lat: known.lat, lng: known.lng };
+  if (geocodeCache.has(text)) return geocodeCache.get(text) || null;
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 4000);
+  const timer = setTimeout(() => ctrl.abort(), 2500);
   try {
     const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=vn&q=${encodeURIComponent(`${text}, Vietnam`)}`;
     const res = await fetch(url, {
@@ -48,9 +55,15 @@ export async function geocode(query: string): Promise<Coord | null> {
     const hit = data[0];
     const lat = Number(hit?.lat);
     const lng = Number(hit?.lon);
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-    return { lat, lng };
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      geocodeCache.set(text, null);
+      return null;
+    }
+    const coord = { lat, lng };
+    geocodeCache.set(text, coord);
+    return coord;
   } catch {
+    geocodeCache.set(text, null);
     return null;
   } finally {
     clearTimeout(timer);

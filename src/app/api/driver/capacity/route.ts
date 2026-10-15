@@ -16,6 +16,7 @@ export async function GET() {
     rows.map((r) => ({
       ...r,
       expectedPriceVnd: r.expectedPriceVnd.toString(),
+      orderId: r.negotiations.find((n) => n.orderId)?.orderId || null,
       negotiations: r.negotiations.map((n) => ({ ...n, priceVnd: n.priceVnd.toString() })),
     }))
   );

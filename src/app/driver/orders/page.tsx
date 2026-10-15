@@ -10,9 +10,11 @@ import { useI18n } from "@/components/I18nProvider";
 export default function MyDriverOrders() {
   const { t } = useI18n();
   const [rows, setRows] = useState<Array<{ id: string; orderNo: string; status: string }>>([]);
+  const [loading, setLoading] = useState(true);
   useEffect(() => {
     (async () => {
       const res = await apiFetch<Array<{ id: string; orderNo: string; status: string }>>("/api/driver/orders?scope=mine");
+      setLoading(false);
       if (!res.ok) message.error(res.message || "加载失败");
       else setRows(res.data || []);
     })();
@@ -23,6 +25,7 @@ export default function MyDriverOrders() {
       <Card>
         <Table
           rowKey="id"
+          loading={loading}
           dataSource={rows}
           pagination={{ pageSize: 15, showSizeChanger: true, pageSizeOptions: ["15", "25", "50", "100", "500"] }}
           columns={[

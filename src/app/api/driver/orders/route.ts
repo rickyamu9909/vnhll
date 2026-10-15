@@ -29,9 +29,13 @@ export async function GET(req: NextRequest) {
   await sweepDeadlines();
   const scope = req.nextUrl.searchParams.get("scope");
   const dbUser = await prisma.user.findUnique({ where: { id: user!.id } });
+  const executing = [OrderStatus.PENDING_EXECUTION, OrderStatus.IN_TRANSIT, OrderStatus.MATCHED, OrderStatus.DELIVERED];
   const where =
     scope === "tasks"
-      ? { assignedToUserId: user!.id }
+      ? {
+          status: { in: executing },
+          OR: [{ assignedToUserId: user!.id }, { assignedToUserId: null, acceptedByUserId: user!.id }],
+        }
       : scope === "mine"
         ? { OR: [{ acceptedByUserId: user!.id }, { assignedToUserId: user!.id }] }
         : {

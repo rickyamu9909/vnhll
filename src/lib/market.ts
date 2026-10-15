@@ -14,6 +14,7 @@ import { assertOrderRegion } from "./regions";
 import { geocode, matchPair } from "./geo";
 import { volumeFromItems } from "./order-form";
 import { shareOnForStatus } from "./track";
+import { capacityMatchBlock, placeById, placeFromText } from "./places";
 
 export type CargoItemInput = {
   lengthCm: number;
@@ -64,15 +65,35 @@ export function parseOrderBody(body: Record<string, unknown>) {
   const originPhone = String(body.originPhone || body.pickupPhone || "").trim();
   const destContact = String(body.destContact || body.deliveryContact || "").trim();
   const destPhone = String(body.destPhone || body.deliveryPhone || "").trim();
-  const originAddress = String(body.originAddress || body.pickupAddress || "").trim();
-  const destAddress = String(body.destAddress || body.deliveryAddress || "").trim();
+  let originAddress = String(body.originAddress || body.pickupAddress || "").trim();
+  let destAddress = String(body.destAddress || body.deliveryAddress || "").trim();
   if (!originContact || !originPhone || !destContact || !destPhone) {
     throw new Error("起运和目的联系人、电话均为必填");
   }
-  const originProvince = String(body.originProvince || "").trim();
-  const originCity = String(body.originCity || "").trim();
-  const destProvince = String(body.destProvince || "").trim();
-  const destCity = String(body.destCity || "").trim();
+  let originProvince = String(body.originProvince || "").trim();
+  let originCity = String(body.originCity || "").trim();
+  let destProvince = String(body.destProvince || "").trim();
+  let destCity = String(body.destCity || "").trim();
+  const originPlace = placeById(body.originPlaceId);
+  const destPlace = placeById(body.destPlaceId);
+  let originLat: number | null = null;
+  let originLng: number | null = null;
+  let destLat: number | null = null;
+  let destLng: number | null = null;
+  if (originPlace) {
+    originProvince = originProvince || originPlace.province;
+    originCity = originCity || originPlace.ward;
+    originAddress = originAddress || originPlace.address;
+    originLat = originPlace.lat;
+    originLng = originPlace.lng;
+  }
+  if (destPlace) {
+    destProvince = destProvince || destPlace.province;
+    destCity = destCity || destPlace.ward;
+    destAddress = destAddress || destPlace.address;
+    destLat = destPlace.lat;
+    destLng = destPlace.lng;
+  }
   if (originProvince && originCity) assertOrderRegion(originProvince, originCity, "起运");
   if (destProvince && destCity) assertOrderRegion(destProvince, destCity, "目的");
   const rawItems = Array.isArray(body.cargoItems) ? (body.cargoItems as CargoItemInput[]) : [];
@@ -98,13 +119,13 @@ export function parseOrderBody(body: Record<string, unknown>) {
   const targetPriceVnd =
     targetRaw === null || targetRaw === undefined || targetRaw === "" ? null : toBigIntMoney(targetRaw as number | string);
   return {
-    originProvince: String(body.originProvince || "").trim(),
-    originCity: String(body.originCity || "").trim(),
+    originProvince,
+    originCity,
     originAddress,
     originContact,
     originPhone,
-    destProvince: String(body.destProvince || "").trim(),
-    destCity: String(body.destCity || "").trim(),
+    destProvince,
+    destCity,
     destAddress,
     destContact,
     destPhone,
@@ -117,6 +138,10 @@ export function parseOrderBody(body: Record<string, unknown>) {
     targetPriceVnd,
     abnormalNote: body.abnormalNote ? String(body.abnormalNote) : null,
     note: body.note ? String(body.note) : null,
+    originLat,
+    originLng,
+    destLat,
+    destLng,
     items: items.map((it) => ({
       lengthCm: Number(it.lengthCm),
       widthCm: Number(it.widthCm),
@@ -153,6 +178,10 @@ function shipmentData(parsed: ReturnType<typeof parseOrderBody>, extra: Record<s
     destProvince: parsed.destProvince,
     destCity: parsed.destCity,
     destAddress: parsed.destAddress,
+    originLat: parsed.originLat,
+    originLng: parsed.originLng,
+    destLat: parsed.destLat,
+    destLng: parsed.destLng,
     cargoType: parsed.cargoType,
     packaging: parsed.packaging,
     weightTons: parsed.weightTons,
@@ -190,7 +219,7 @@ export async function createPublishedOrder(customerId: string, body: Record<stri
     },
   });
   await logOp(actorId, "ORDER_CREATE", "order", order.id, note);
-  await locateAndSuggestOrder(order.id).catch((error) => console.error("suggest-order", error));
+  void locateAndSuggestOrder(order.id).catch((error) => console.error("suggest-order", error));
   return order;
 }
 
@@ -227,6 +256,7 @@ async function republish(orderId: string, actorId: string | null, note: string, 
     },
   });
   await logOp(actorId, "ORDER_REPUBLISH", "order", orderId, note);
+  void locateAndSuggestOrder(orderId).catch((error) => console.error("suggest-order", error));
   return updated;
 }
 
@@ -234,11 +264,43 @@ function lowestBid<T extends { priceVnd: bigint; createdAt: Date }>(bids: T[]) {
   return [...bids].sort((a, b) => (a.priceVnd < b.priceVnd ? -1 : a.priceVnd > b.priceVnd ? 1 : a.createdAt.getTime() - b.createdAt.getTime()))[0];
 }
 
-export async function sweepDeadlines() {
+function settled(price: bigint, bps: number) {
+  return {
+    status: OrderStatus.PENDING_EXECUTION,
+    trackShareOn: true,
+    auditDeadline: null as Date | null,
+    rejectReason: null as string | null,
+    ...moneyFields(price, bps),
+  };
+}
+
+let sweepTask: Promise<void> | null = null;
+let sweepAt = 0;
+
+export function sweepDeadlines() {
+  const nowMs = Date.now();
+  if (sweepTask) return sweepTask;
+  if (nowMs - sweepAt < 20000) return Promise.resolve();
+  sweepAt = nowMs;
+  sweepTask = runSweep().finally(() => {
+    sweepTask = null;
+  });
+  return sweepTask;
+}
+
+async function runSweep() {
   const cfg = await getConfig();
   const now = new Date();
   const open = await prisma.order.findMany({
-    where: { status: OrderStatus.OPEN, matchPath: { in: [MatchPath.A, MatchPath.B] } },
+    where: {
+      status: OrderStatus.OPEN,
+      matchPath: { in: [MatchPath.A, MatchPath.B] },
+      OR: [
+        { waitDeadline: { lte: now } },
+        { bidDeadline: { lte: now } },
+        ...(cfg.confirmTimerStart === "AFTER_FIRST_BID" ? [{ carrierBids: { some: {} } }] : []),
+      ],
+    },
     include: { carrierBids: true },
   });
   for (const order of open) {
@@ -296,28 +358,28 @@ export async function sweepDeadlines() {
     await prisma.order.update({
       where: { id: order.id },
       data: {
-        status: OrderStatus.PENDING_AUDIT,
+        ...settled(best.priceVnd, bps),
         acceptedByUserId: best.bidderUserId,
-        auditDeadline: addMinutes(now, cfg.auditMinutes),
-        ...moneyFields(best.priceVnd, bps),
-        statusLogs: { create: { fromStatus: order.status, toStatus: OrderStatus.PENDING_AUDIT, note: "客户确认超时，默认最低价" } },
+        statusLogs: { create: { fromStatus: order.status, toStatus: OrderStatus.PENDING_EXECUTION, note: "客户确认超时，按最低价成交" } },
       },
     });
   }
 
-  const audits = await prisma.order.findMany({
-    where: { status: { in: [OrderStatus.LOCKED, OrderStatus.PENDING_AUDIT] }, auditDeadline: { lte: now } },
+  const waitingReview = await prisma.order.findMany({
+    where: { status: { in: [OrderStatus.LOCKED, OrderStatus.PENDING_AUDIT] } },
+    select: { id: true, status: true },
   });
-  for (const order of audits) {
+  for (const order of waitingReview) {
     await prisma.order.update({
       where: { id: order.id },
       data: {
         status: OrderStatus.PENDING_EXECUTION,
+        trackShareOn: true,
+        auditDeadline: null,
         rejectReason: null,
-        statusLogs: { create: { fromStatus: order.status, toStatus: OrderStatus.PENDING_EXECUTION, note: "平台审核超时自动通过" } },
+        statusLogs: { create: { fromStatus: order.status, toStatus: OrderStatus.PENDING_EXECUTION, note: "平台不审核匹配，直接进入待执行" } },
       },
     });
-    await logOp(null, "AUDIT_AUTO_PASS", "order", order.id, "超时自动通过");
   }
 
   await prisma.capacityNegotiation.updateMany({
@@ -338,11 +400,9 @@ export async function acceptPathA(orderId: string, userId: string) {
   const updated = await prisma.order.update({
     where: { id: orderId },
     data: {
-      status: OrderStatus.LOCKED,
+      ...settled(order.targetPriceVnd, bps),
       acceptedByUserId: userId,
-      auditDeadline: addMinutes(new Date(), cfg.auditMinutes),
-      ...moneyFields(order.targetPriceVnd, bps),
-      statusLogs: { create: { fromStatus: order.status, toStatus: OrderStatus.LOCKED, note: "主账号接单锁定", operatorId: userId } },
+      statusLogs: { create: { fromStatus: order.status, toStatus: OrderStatus.PENDING_EXECUTION, note: "司机接单，直接进入待执行", operatorId: userId } },
     },
   });
   await logOp(userId, "ORDER_ACCEPT", "order", orderId);
@@ -375,11 +435,9 @@ export async function confirmBid(orderId: string, customerId: string, bidId: str
   const updated = await prisma.order.update({
     where: { id: orderId },
     data: {
-      status: OrderStatus.PENDING_AUDIT,
+      ...settled(bid.priceVnd, bps),
       acceptedByUserId: bid.bidderUserId,
-      auditDeadline: addMinutes(new Date(), cfg.auditMinutes),
-      ...moneyFields(bid.priceVnd, bps),
-      statusLogs: { create: { fromStatus: order.status, toStatus: OrderStatus.PENDING_AUDIT, note: "客户确认报价", operatorId: customerId } },
+      statusLogs: { create: { fromStatus: order.status, toStatus: OrderStatus.PENDING_EXECUTION, note: "客户确认报价，直接进入待执行", operatorId: customerId } },
     },
   });
   await logOp(customerId, "ORDER_CONFIRM", "order", orderId);
@@ -547,45 +605,81 @@ export async function customerRevise(orderId: string, customerId: string, body: 
       statusLogs: { create: { fromStatus: order.status, toStatus: OrderStatus.OPEN, note: "客户修改后重新发布", operatorId: customerId } },
     },
   });
-  await locateAndSuggestOrder(updated.id).catch((error) => console.error("suggest-order", error));
+  void locateAndSuggestOrder(updated.id).catch((error) => console.error("suggest-order", error));
   return updated;
+}
+
+function capacityFields(body: Record<string, unknown>) {
+  const locationPlace = placeById(body.locationPlaceId);
+  const destPlace = placeById(body.destPlaceId);
+  const locationExtra = String(body.locationAddress || body.location || "").trim();
+  const location = locationPlace
+    ? locationExtra.includes(locationPlace.name)
+      ? locationExtra
+      : [locationPlace.name, locationExtra].filter(Boolean).join(" ")
+    : [body.locationProvince, body.locationWard, locationExtra]
+        .map((part) => String(part || "").trim())
+        .filter(Boolean)
+        .join(" ");
+  const destExtra = String(body.destAddress || body.destPreference || "").trim();
+  const destPreference = destPlace
+    ? destExtra.includes(destPlace.name)
+      ? destExtra
+      : [destPlace.name, destExtra].filter(Boolean).join(" ")
+    : [body.destProvince, body.destWard, destExtra]
+        .map((part) => String(part || "").trim())
+        .filter(Boolean)
+        .join(" ");
+  if (!location) throw new Error("请填写当前空车位置，或选择堆场/码头");
+  const availableFrom = new Date(String(body.availableFrom || ""));
+  const availableTo = new Date(String(body.availableTo || ""));
+  if (Number.isNaN(availableFrom.getTime()) || Number.isNaN(availableTo.getTime())) throw new Error("请填写可接货时间");
+  return {
+    location,
+    locationLat: locationPlace?.lat ?? null,
+    locationLng: locationPlace?.lng ?? null,
+    destLat: destPlace?.lat ?? null,
+    destLng: destPlace?.lng ?? null,
+    availableFrom,
+    availableTo,
+    destPreference: destPreference || null,
+    vehicleType: body.vehicleType as VehicleType,
+    loadTons: Number(body.loadTons),
+    cargoTypes: String(body.cargoTypes || "GENERAL"),
+    airportOk: Boolean(body.airportOk),
+    portOk: Boolean(body.portOk),
+    expectedPriceVnd: toBigIntMoney(body.expectedPriceVnd as number),
+    note: body.note ? String(body.note) : null,
+  };
 }
 
 export async function createCapacity(publisherUserId: string, body: Record<string, unknown>) {
   const user = await prisma.user.findUnique({ where: { id: publisherUserId } });
   if (!user || (user.role !== "CARRIER_MAIN" && user.role !== "CARRIER_SUB")) throw new Error("无权发布运力");
-  const location = [body.locationProvince, body.locationWard, body.locationAddress || body.location]
-    .map((part) => String(part || "").trim())
-    .filter(Boolean)
-    .join(" ");
-  const destPreference = [body.destProvince, body.destWard, body.destAddress || body.destPreference]
-    .map((part) => String(part || "").trim())
-    .filter(Boolean)
-    .join(" ");
-  if (!location) throw new Error("请填写当前空车位置");
-  const availableFrom = new Date(String(body.availableFrom || ""));
-  const availableTo = new Date(String(body.availableTo || ""));
-  if (Number.isNaN(availableFrom.getTime()) || Number.isNaN(availableTo.getTime())) throw new Error("请填写可接货时间");
-  const expected = toBigIntMoney(body.expectedPriceVnd as number);
-  const row = await prisma.capacity.create({
-    data: {
-      publisherUserId,
-      location,
-      availableFrom,
-      availableTo,
-      destPreference: destPreference || null,
-      vehicleType: body.vehicleType as VehicleType,
-      loadTons: Number(body.loadTons),
-      cargoTypes: String(body.cargoTypes || "GENERAL"),
-      airportOk: Boolean(body.airportOk),
-      portOk: Boolean(body.portOk),
-      expectedPriceVnd: expected,
-      note: body.note ? String(body.note) : null,
-    },
-  });
+  const row = await prisma.capacity.create({ data: { publisherUserId, ...capacityFields(body) } });
   await logOp(publisherUserId, "CAPACITY_CREATE", "capacity", row.id);
-  await locateAndSuggestCapacity(row.id).catch((error) => console.error("suggest-capacity", error));
+  void locateAndSuggestCapacity(row.id).catch((error) => console.error("suggest-capacity", error));
   return row;
+}
+
+export async function updateCapacity(capacityId: string, publisherUserId: string, body: Record<string, unknown>) {
+  const current = await prisma.capacity.findUnique({ where: { id: capacityId } });
+  if (!current || current.publisherUserId !== publisherUserId) throw new Error("运力不存在");
+  if (current.status !== "OPEN") throw new Error("只有未匹配的运力可以编辑");
+  const next = await prisma.capacity.update({ where: { id: capacityId }, data: capacityFields(body) });
+  await logOp(publisherUserId, "CAPACITY_UPDATE", "capacity", capacityId);
+  void locateAndSuggestCapacity(capacityId).catch((error) => console.error("suggest-capacity", error));
+  return next;
+}
+
+export async function closeCapacity(capacityId: string, publisherUserId: string) {
+  const current = await prisma.capacity.findUnique({ where: { id: capacityId } });
+  if (!current || current.publisherUserId !== publisherUserId) throw new Error("运力不存在");
+  if (current.status === "MATCHED") throw new Error("这条运力已经匹配成订单，请到订单里取消");
+  if (current.status === "CLOSED") return current;
+  const next = await prisma.capacity.update({ where: { id: capacityId }, data: { status: "CLOSED" } });
+  await logOp(publisherUserId, "CAPACITY_CLOSE", "capacity", capacityId);
+  return next;
 }
 
 async function negotiationShipment(body: Record<string, unknown>, capacityId: string, customerId: string, price: bigint, deadline: Date | null) {
@@ -629,8 +723,12 @@ async function orderFromNegotiation(negId: string, actorId: string) {
     data: {
       orderNo: genOrderNo(),
       customerId: neg.customerId,
-      status: OrderStatus.PENDING_AUDIT,
+      ...settled(neg.priceVnd, bps),
       matchPath: MatchPath.C,
+      originLat: placeFromText([neg.originAddress, neg.originCity, neg.originProvince].join(" "))?.lat ?? null,
+      originLng: placeFromText([neg.originAddress, neg.originCity, neg.originProvince].join(" "))?.lng ?? null,
+      destLat: placeFromText([neg.destAddress, neg.destCity, neg.destProvince].join(" "))?.lat ?? null,
+      destLng: placeFromText([neg.destAddress, neg.destCity, neg.destProvince].join(" "))?.lng ?? null,
       pickupAddress: [neg.originProvince, neg.originCity, neg.originAddress].filter(Boolean).join(" "),
       pickupContact: neg.originContact,
       pickupPhone: neg.originPhone,
@@ -658,15 +756,13 @@ async function orderFromNegotiation(negId: string, actorId: string) {
       acceptedByUserId: acceptedBy,
       assignedToUserId: publisher?.role === "CARRIER_SUB" ? publisher.id : null,
       capacityId: neg.capacityId,
-      auditDeadline: addMinutes(new Date(), cfg.auditMinutes),
-      ...moneyFields(neg.priceVnd, bps),
-      statusLogs: { create: { toStatus: OrderStatus.PENDING_AUDIT, note: "运力匹配进入平台审核", operatorId: actorId } },
+      statusLogs: { create: { toStatus: OrderStatus.PENDING_EXECUTION, note: "运力匹配成功，直接进入待执行", operatorId: actorId } },
     },
   });
   await prisma.capacityNegotiation.update({ where: { id: negId }, data: { status: NegotiationStatus.ACCEPTED, orderId: order.id } });
   await prisma.capacity.update({ where: { id: neg.capacityId }, data: { status: "MATCHED" } });
   if (publisher?.role === "CARRIER_SUB" && publisher.parentUserId) {
-    await notify(publisher.parentUserId, "运力协商已接受", `司机已接受协商，订单 ${order.orderNo} 进入平台审核`);
+    await notify(publisher.parentUserId, "运力协商已接受", `司机已接受协商，订单 ${order.orderNo} 已进入待执行`);
   }
   await logOp(actorId, "CAPACITY_MATCH", "order", order.id);
   return order;
@@ -674,7 +770,8 @@ async function orderFromNegotiation(negId: string, actorId: string) {
 
 export async function matchCapacity(capacityId: string, customerId: string, body: Record<string, unknown>) {
   const cap = await prisma.capacity.findUnique({ where: { id: capacityId } });
-  if (!cap || cap.status !== "OPEN") throw new Error("运力不可匹配");
+  const block = capacityMatchBlock(cap?.status);
+  if (block || !cap) throw new Error(block || "找不到这条运力");
   const acceptExpected = Boolean(body.acceptExpected);
   const cfg = await getConfig();
   if (acceptExpected) {
@@ -748,15 +845,21 @@ async function persistSuggestions(
 export async function locateAndSuggestOrder(orderId: string) {
   const order = await prisma.order.findUnique({ where: { id: orderId } });
   if (!order || (order.status !== OrderStatus.OPEN && order.status !== OrderStatus.BIDDING)) return;
-  const origin = await geocode([order.originAddress, order.originCity, order.originProvince].filter(Boolean).join(", "));
-  const dest = await geocode([order.destAddress, order.destCity, order.destProvince].filter(Boolean).join(", "));
+  const origin =
+    order.originLat != null && order.originLng != null
+      ? { lat: order.originLat, lng: order.originLng }
+      : await geocode([order.originAddress, order.originCity, order.originProvince].filter(Boolean).join(", "));
+  const dest =
+    order.destLat != null && order.destLng != null
+      ? { lat: order.destLat, lng: order.destLng }
+      : await geocode([order.destAddress, order.destCity, order.destProvince].filter(Boolean).join(", "));
   const updated = await prisma.order.update({
     where: { id: orderId },
     data: {
-      originLat: origin?.lat ?? null,
-      originLng: origin?.lng ?? null,
-      destLat: dest?.lat ?? null,
-      destLng: dest?.lng ?? null,
+      originLat: origin?.lat ?? order.originLat,
+      originLng: origin?.lng ?? order.originLng,
+      destLat: dest?.lat ?? order.destLat,
+      destLng: dest?.lng ?? order.destLng,
     },
   });
   const caps = await prisma.capacity.findMany({ where: { status: "OPEN" } });
@@ -766,15 +869,21 @@ export async function locateAndSuggestOrder(orderId: string) {
 export async function locateAndSuggestCapacity(capacityId: string) {
   const cap = await prisma.capacity.findUnique({ where: { id: capacityId } });
   if (!cap || cap.status !== "OPEN") return;
-  const location = await geocode(cap.location);
-  const dest = cap.destPreference ? await geocode(cap.destPreference) : null;
+  const location =
+    cap.locationLat != null && cap.locationLng != null ? { lat: cap.locationLat, lng: cap.locationLng } : await geocode(cap.location);
+  const dest =
+    cap.destLat != null && cap.destLng != null
+      ? { lat: cap.destLat, lng: cap.destLng }
+      : cap.destPreference
+        ? await geocode(cap.destPreference)
+        : null;
   const updated = await prisma.capacity.update({
     where: { id: capacityId },
     data: {
-      locationLat: location?.lat ?? null,
-      locationLng: location?.lng ?? null,
-      destLat: dest?.lat ?? null,
-      destLng: dest?.lng ?? null,
+      locationLat: location?.lat ?? cap.locationLat,
+      locationLng: location?.lng ?? cap.locationLng,
+      destLat: dest?.lat ?? cap.destLat,
+      destLng: dest?.lng ?? cap.destLng,
     },
   });
   const orders = await prisma.order.findMany({ where: { status: { in: [OrderStatus.OPEN, OrderStatus.BIDDING] } } });
@@ -863,7 +972,8 @@ export async function respondSuggestion(id: string, userId: string, accept: bool
     await notify(isCustomer ? cap.publisherUserId : order.customerId, "对方已确认附近撮合", `订单 ${order.orderNo} 相距约 ${row.distanceKm} 公里，请确认是否匹配。`);
     return { status: next };
   }
-  if (cap.status !== "OPEN") throw new Error("运力已不可匹配");
+  const unavailable = capacityMatchBlock(cap.status);
+  if (unavailable) throw new Error(unavailable);
   const openish: OrderStatus[] = [OrderStatus.OPEN, OrderStatus.BIDDING];
   if (!openish.includes(order.status)) throw new Error("订单已不在撮合中");
   const price = order.targetPriceVnd && order.targetPriceVnd > 0n ? order.targetPriceVnd : cap.expectedPriceVnd;
@@ -874,18 +984,16 @@ export async function respondSuggestion(id: string, userId: string, accept: bool
   await prisma.order.update({
     where: { id: order.id },
     data: {
-      status: OrderStatus.PENDING_AUDIT,
+      ...settled(price, bps),
       matchPath: MatchPath.C,
       vehicleType: order.vehicleType || cap.vehicleType,
       acceptedByUserId: acceptedBy,
       assignedToUserId: publisher?.role === "CARRIER_SUB" ? publisher.id : null,
       capacityId: cap.id,
-      auditDeadline: addMinutes(new Date(), cfg.auditMinutes),
       targetPriceVnd: order.targetPriceVnd || price,
       customerBidVnd: order.customerBidVnd || price,
       commissionBps: bps,
-      ...moneyFields(price, bps),
-      statusLogs: { create: { fromStatus: order.status, toStatus: OrderStatus.PENDING_AUDIT, note: "双方确认附近地址撮合", operatorId: userId } },
+      statusLogs: { create: { fromStatus: order.status, toStatus: OrderStatus.PENDING_EXECUTION, note: "双方确认附近撮合，直接进入待执行", operatorId: userId } },
     },
   });
   await prisma.capacity.update({ where: { id: cap.id }, data: { status: "MATCHED" } });
@@ -898,10 +1006,10 @@ export async function respondSuggestion(id: string, userId: string, accept: bool
     },
     data: { status: "REJECTED" },
   });
-  await notify(order.customerId, "撮合已达成", `订单 ${order.orderNo} 已进入平台审核`);
-  await notify(cap.publisherUserId, "撮合已达成", `订单 ${order.orderNo} 已进入平台审核`);
+  await notify(order.customerId, "撮合已达成", `订单 ${order.orderNo} 已进入待执行`);
+  await notify(cap.publisherUserId, "撮合已达成", `订单 ${order.orderNo} 已进入待执行`);
   if (publisher?.role === "CARRIER_SUB" && publisher.parentUserId) {
-    await notify(publisher.parentUserId, "运力已撮合", `订单 ${order.orderNo} 进入平台审核`);
+    await notify(publisher.parentUserId, "运力已撮合", `订单 ${order.orderNo} 已进入待执行`);
   }
   await logOp(userId, "SUGGEST_MATCH", "order", order.id);
   return { status: "MATCHED" };
