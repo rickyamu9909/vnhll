@@ -11,8 +11,9 @@ import { prisma } from "./prisma";
 import { calcByBps, serializeMoney, toBigIntMoney } from "./money";
 import { genOrderNo } from "./order";
 import { assertOrderRegion } from "./regions";
-import { geocode, matchPair } from "./geo";
+import { geocode, routeEstimate } from "./geo";
 import { volumeFromItems } from "./order-form";
+import { scoreRouteFit, SUGGEST_MIN_SCORE } from "./route-score";
 import { DRIVER_ISSUE, DRIVER_STAGES } from "./stages";
 import { shareOnForStatus } from "./track";
 import { capacityMatchBlock, placeById, placeFromText } from "./places";
@@ -278,10 +279,10 @@ function settled(price: bigint, bps: number) {
 let sweepTask: Promise<void> | null = null;
 let sweepAt = 0;
 
-export function sweepDeadlines() {
+export function sweepDeadlines(force = false) {
   const nowMs = Date.now();
   if (sweepTask) return sweepTask;
-  if (nowMs - sweepAt < 20000) return Promise.resolve();
+  if (!force && nowMs - sweepAt < 20000) return Promise.resolve();
   sweepAt = nowMs;
   sweepTask = runSweep().finally(() => {
     sweepTask = null;
@@ -387,6 +388,45 @@ async function runSweep() {
     where: { status: NegotiationStatus.PENDING, respondDeadline: { lte: now } },
     data: { status: NegotiationStatus.EXPIRED },
   });
+
+  const expiredSuggestions = await prisma.matchSuggestion.findMany({
+    where: {
+      status: { in: ["PENDING", "CUSTOMER_OK", "DRIVER_OK"] },
+      deadline: { lte: now },
+    },
+    take: 100,
+  });
+  for (const row of expiredSuggestions) {
+    await prisma.matchSuggestion.update({ where: { id: row.id }, data: { status: "EXPIRED" } });
+    const [order, cap] = await Promise.all([
+      prisma.order.findUnique({ where: { id: row.orderId }, select: { customerId: true, orderNo: true } }),
+      prisma.capacity.findUnique({ where: { id: row.capacityId }, select: { publisherUserId: true } }),
+    ]);
+    if (order && cap) {
+      await notify(order.customerId, "撮合建议已过期", `订单 ${order.orderNo} 的顺路匹配已超过有效期`);
+      await notify(cap.publisherUserId, "撮合建议已过期", `订单 ${order.orderNo} 的顺路匹配已超过有效期`);
+    }
+  }
+
+  const halfOk = await prisma.matchSuggestion.findMany({
+    where: {
+      status: { in: ["CUSTOMER_OK", "DRIVER_OK"] },
+      deadline: { gt: now },
+    },
+    take: 50,
+  });
+  for (const row of halfOk) {
+    if (!row.deadline) continue;
+    const remain = row.deadline.getTime() - now.getTime();
+    if (remain > 10 * 60 * 1000) continue;
+    const [order, cap] = await Promise.all([
+      prisma.order.findUnique({ where: { id: row.orderId }, select: { customerId: true, orderNo: true } }),
+      prisma.capacity.findUnique({ where: { id: row.capacityId }, select: { publisherUserId: true } }),
+    ]);
+    if (!order || !cap) continue;
+    const target = row.status === "CUSTOMER_OK" ? cap.publisherUserId : order.customerId;
+    await notify(target, "请尽快确认撮合", `订单 ${order.orderNo} 对方已确认，有效期即将结束`);
+  }
 }
 
 export async function acceptPathA(orderId: string, userId: string) {
@@ -840,6 +880,10 @@ async function persistSuggestions(
     originLng: number | null;
     destLat: number | null;
     destLng: number | null;
+    pickupAt?: Date | null;
+    vehicleType?: string | null;
+    weightTons?: number | null;
+    cargoType?: string | null;
   },
   capacities: Array<{
     id: string;
@@ -849,24 +893,69 @@ async function persistSuggestions(
     destLat: number | null;
     destLng: number | null;
     destPreference: string | null;
+    availableFrom?: Date | null;
+    availableTo?: Date | null;
+    vehicleType?: string | null;
+    loadTons?: number | null;
+    cargoTypes?: string | null;
+    airportOk?: boolean;
+    portOk?: boolean;
   }>
 ) {
+  const cfg = await getConfig();
+  const deadline = addMinutes(new Date(), cfg.negotiateMinutes);
   for (const cap of capacities) {
-    const preference = (cap.destPreference || "").trim();
-    const hit = preference
-      ? matchPair({ dest: point(order.destLat, order.destLng) }, { dest: point(cap.destLat, cap.destLng) })
-      : matchPair({ origin: point(order.originLat, order.originLng) }, { location: point(cap.locationLat, cap.locationLng) });
-    if (!hit) continue;
+    const scored = scoreRouteFit({
+      orderOrigin: point(order.originLat, order.originLng),
+      orderDest: point(order.destLat, order.destLng),
+      pickupAt: order.pickupAt,
+      vehicleType: order.vehicleType,
+      weightTons: order.weightTons,
+      cargoType: order.cargoType,
+      capLocation: point(cap.locationLat, cap.locationLng),
+      capDest: point(cap.destLat, cap.destLng),
+      availableFrom: cap.availableFrom,
+      availableTo: cap.availableTo,
+      capVehicleType: cap.vehicleType,
+      loadTons: cap.loadTons,
+      cargoTypes: cap.cargoTypes,
+      airportOk: cap.airportOk,
+      portOk: cap.portOk,
+    });
+    if (!scored || scored.score < SUGGEST_MIN_SCORE) continue;
     const existing = await prisma.matchSuggestion.findUnique({
       where: { orderId_capacityId: { orderId: order.id, capacityId: cap.id } },
     });
-    if (existing) continue;
-    const distanceKm = Math.round(hit.km * 100) / 100;
+    if (existing) {
+      if (existing.status === "PENDING" || existing.status === "EXPIRED") {
+        await prisma.matchSuggestion.update({
+          where: { id: existing.id },
+          data: {
+            distanceKm: scored.distanceKm,
+            basis: scored.basis,
+            score: scored.score,
+            reason: scored.reason,
+            status: "PENDING",
+            deadline,
+          },
+        });
+      }
+      continue;
+    }
     await prisma.matchSuggestion.create({
-      data: { orderId: order.id, capacityId: cap.id, distanceKm, basis: hit.basis, status: "PENDING" },
+      data: {
+        orderId: order.id,
+        capacityId: cap.id,
+        distanceKm: scored.distanceKm,
+        basis: scored.basis,
+        score: scored.score,
+        reason: scored.reason,
+        status: "PENDING",
+        deadline,
+      },
     });
-    await notify(order.customerId, "附近运力可撮合", `订单 ${order.orderNo} 与司机运力相距约 ${distanceKm} 公里，请确认是否匹配。`);
-    await notify(cap.publisherUserId, "附近订单可撮合", `客户订单 ${order.orderNo} 距你的运力约 ${distanceKm} 公里，请确认是否匹配。`);
+    await notify(order.customerId, "发现顺路运力", `订单 ${order.orderNo}：${scored.reason}。请在 ${cfg.negotiateMinutes} 分钟内确认。`);
+    await notify(cap.publisherUserId, "发现顺路货源", `客户订单 ${order.orderNo}：${scored.reason}。请在 ${cfg.negotiateMinutes} 分钟内确认。`);
   }
 }
 
@@ -881,6 +970,15 @@ export async function locateAndSuggestOrder(orderId: string) {
     order.destLat != null && order.destLng != null
       ? { lat: order.destLat, lng: order.destLng }
       : await geocode([order.destAddress, order.destCity, order.destProvince].filter(Boolean).join(", "));
+  let routeDistanceKm = order.routeDistanceKm;
+  let routeDurationMin = order.routeDurationMin;
+  let routeSource = order.routeSource;
+  if (origin && dest) {
+    const route = await routeEstimate(origin, dest);
+    routeDistanceKm = route.distanceKm;
+    routeDurationMin = route.durationMin;
+    routeSource = route.source;
+  }
   const updated = await prisma.order.update({
     where: { id: orderId },
     data: {
@@ -888,6 +986,9 @@ export async function locateAndSuggestOrder(orderId: string) {
       originLng: origin?.lng ?? order.originLng,
       destLat: dest?.lat ?? order.destLat,
       destLng: dest?.lng ?? order.destLng,
+      routeDistanceKm,
+      routeDurationMin,
+      routeSource,
     },
   });
   const caps = await prisma.capacity.findMany({ where: { status: "OPEN" } });
@@ -964,6 +1065,9 @@ export async function listSuggestions(userId: string) {
         status: row.status,
         distanceKm: row.distanceKm,
         basis: row.basis,
+        score: row.score,
+        reason: row.reason,
+        deadline: row.deadline,
         orderNo: order.orderNo,
         pickup: order.originAddress || order.pickupAddress,
         delivery: order.destAddress || order.deliveryAddress,
@@ -979,7 +1083,11 @@ export async function listSuggestions(userId: string) {
 
 export async function respondSuggestion(id: string, userId: string, accept: boolean) {
   const row = await prisma.matchSuggestion.findUnique({ where: { id } });
-  if (!row || row.status === "MATCHED" || row.status === "REJECTED") throw new Error("撮合建议已处理");
+  if (!row || row.status === "MATCHED" || row.status === "REJECTED" || row.status === "EXPIRED") throw new Error("撮合建议已处理或已过期");
+  if (row.deadline && row.deadline.getTime() < Date.now()) {
+    await prisma.matchSuggestion.update({ where: { id }, data: { status: "EXPIRED" } });
+    throw new Error("撮合建议已过期");
+  }
   const [order, cap] = await Promise.all([
     prisma.order.findUnique({ where: { id: row.orderId } }),
     prisma.capacity.findUnique({ where: { id: row.capacityId } }),
@@ -997,7 +1105,11 @@ export async function respondSuggestion(id: string, userId: string, accept: bool
   if ((isCustomer && row.status === "CUSTOMER_OK") || (isDriver && row.status === "DRIVER_OK")) return { status: row.status };
   if (next !== "MATCHED") {
     await prisma.matchSuggestion.update({ where: { id }, data: { status: next } });
-    await notify(isCustomer ? cap.publisherUserId : order.customerId, "对方已确认附近撮合", `订单 ${order.orderNo} 相距约 ${row.distanceKm} 公里，请确认是否匹配。`);
+    await notify(
+      isCustomer ? cap.publisherUserId : order.customerId,
+      "对方已确认顺路撮合",
+      `订单 ${order.orderNo}：${row.reason || `装货距离约 ${row.distanceKm} 公里`}。请尽快确认。`
+    );
     return { status: next };
   }
   const unavailable = capacityMatchBlock(cap.status);

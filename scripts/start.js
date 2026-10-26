@@ -22,6 +22,15 @@ async function main() {
     env: process.env,
   });
 
+  const cronSecret = process.env.CRON_SECRET || "ants-cron";
+  const tick = () => {
+    fetch(`http://127.0.0.1:${port}/api/cron/sweep`, {
+      headers: { Authorization: `Bearer ${cronSecret}` },
+    }).catch((err) => console.log("[ANTS] cron sweep skip", err?.message || err));
+  };
+  setTimeout(tick, 15000);
+  setInterval(tick, 60000);
+
   child.on("exit", (code) => {
     console.log(`[ANTS] next exited with code ${code}`);
     process.exit(code || 0);

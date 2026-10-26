@@ -65,8 +65,8 @@ function NewOrderPage() {
       message.error(res.message || "创建失败");
       return;
     }
-    message.success("订单已提交");
-    router.push(`/orders/${res.data?.id}`);
+    message.success("订单已进入匹配池");
+    router.push(`/orders/${res.data?.id}?fresh=1`);
   };
 
   return (

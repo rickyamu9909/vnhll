@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { jsonFail, jsonOk } from "@/lib/api";
 import { serializeMoney } from "@/lib/money";
 import { sweepDeadlines } from "@/lib/market";
+import { scoreRouteFit } from "@/lib/route-score";
 
 function visiblePrice(role: string, path: MatchPath | null, order: Record<string, unknown>) {
   if (role === "CARRIER_SUB" && path === MatchPath.A) {
@@ -42,19 +43,49 @@ export async function GET(req: NextRequest) {
             status: { in: [OrderStatus.OPEN, OrderStatus.PENDING_CONFIRM] },
             matchPath: { in: [MatchPath.A, MatchPath.B] },
           };
-  const orders = await prisma.order.findMany({
-    where,
-    include: {
-      carrierBids: dbUser?.role === "CARRIER_SUB" ? { where: { bidderUserId: user!.id } } : true,
-    },
-    orderBy: { createdAt: "desc" },
-  });
+  const [orders, caps] = await Promise.all([
+    prisma.order.findMany({
+      where,
+      include: {
+        carrierBids: dbUser?.role === "CARRIER_SUB" ? { where: { bidderUserId: user!.id } } : true,
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+    !scope
+      ? prisma.capacity.findMany({ where: { publisherUserId: user!.id, status: "OPEN" } })
+      : Promise.resolve([]),
+  ]);
   return jsonOk(
     orders.map((o) => {
       const view = serializeMoney(o as unknown as Record<string, unknown>);
       const mine = o.carrierBids.find((bid) => bid.bidderUserId === user!.id);
       view.myBidPriceVnd = mine ? mine.priceVnd.toString() : null;
       view.carrierBids = o.carrierBids.map((b) => ({ ...b, priceVnd: b.priceVnd.toString() }));
+      if (!scope && caps.length) {
+        let best: { score: number; reason: string } | null = null;
+        for (const cap of caps) {
+          const fit = scoreRouteFit({
+            orderOrigin: o.originLat != null && o.originLng != null ? { lat: o.originLat, lng: o.originLng } : null,
+            orderDest: o.destLat != null && o.destLng != null ? { lat: o.destLat, lng: o.destLng } : null,
+            pickupAt: o.pickupAt,
+            vehicleType: o.vehicleType,
+            weightTons: o.weightTons,
+            cargoType: o.cargoType,
+            capLocation: cap.locationLat != null && cap.locationLng != null ? { lat: cap.locationLat, lng: cap.locationLng } : null,
+            capDest: cap.destLat != null && cap.destLng != null ? { lat: cap.destLat, lng: cap.destLng } : null,
+            availableFrom: cap.availableFrom,
+            availableTo: cap.availableTo,
+            capVehicleType: cap.vehicleType,
+            loadTons: cap.loadTons,
+            cargoTypes: cap.cargoTypes,
+            airportOk: cap.airportOk,
+            portOk: cap.portOk,
+          });
+          if (fit && (!best || fit.score > best.score)) best = { score: fit.score, reason: fit.reason };
+        }
+        view.bestScore = best?.score ?? 0;
+        view.scoreReason = best?.reason ?? null;
+      }
       return visiblePrice(user!.role, o.matchPath, view);
     })
   );

@@ -3,10 +3,28 @@ import { placeFromText } from "./places";
 export type Coord = { lat: number; lng: number };
 
 const geocodeCache = new Map<string, Coord | null>();
+const searchCache = new Map<string, PlaceHit[]>();
+const routeCache = new Map<string, RouteEstimate | null>();
 
+/** @deprecated 5km 圆已退出主匹配；保留常量仅兼容旧测试/数据 */
 export const MATCH_RADIUS_KM = 5;
 
-export type MatchBasis = "DEST" | "PICKUP";
+export type MatchBasis = "DEST" | "PICKUP" | "ROUTE";
+
+export type PlaceHit = {
+  label: string;
+  lat: number;
+  lng: number;
+  province?: string;
+  ward?: string;
+  address?: string;
+};
+
+export type RouteEstimate = {
+  distanceKm: number;
+  durationMin: number;
+  source: "osrm" | "straight";
+};
 
 export function haversineKm(a: Coord, b: Coord) {
   const radius = 6371;
@@ -18,6 +36,7 @@ export function haversineKm(a: Coord, b: Coord) {
   return 2 * radius * Math.asin(Math.min(1, Math.sqrt(h)));
 }
 
+/** 旧 5km 硬过滤，主流程勿再用；测试兼容保留 */
 export function matchPair(
   order: { origin?: Coord | null; dest?: Coord | null },
   capacity: { location?: Coord | null; dest?: Coord | null }
@@ -33,39 +52,121 @@ export function matchPair(
   return null;
 }
 
+async function nominatimFetch(pathAndQuery: string) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 3500);
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org${pathAndQuery}`, {
+      signal: ctrl.signal,
+      headers: {
+        "User-Agent": "ANTS-Vietnam-Freight/1.0 (address-assist)",
+        Accept: "application/json",
+      },
+    });
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export async function searchPlaces(query: string, limit = 6): Promise<PlaceHit[]> {
+  const text = query.replace(/\s+/g, " ").trim();
+  if (text.length < 2) return [];
+  const key = `${text}|${limit}`;
+  if (searchCache.has(key)) return searchCache.get(key) || [];
+  const data = (await nominatimFetch(
+    `/search?format=jsonv2&addressdetails=1&limit=${limit}&countrycodes=vn&q=${encodeURIComponent(`${text}, Vietnam`)}`
+  )) as Array<{
+    display_name?: string;
+    lat?: string;
+    lon?: string;
+    address?: Record<string, string>;
+  }> | null;
+  if (!data?.length) {
+    searchCache.set(key, []);
+    return [];
+  }
+  const hits: PlaceHit[] = data
+    .map((row) => {
+      const lat = Number(row.lat);
+      const lng = Number(row.lon);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+      const addr = row.address || {};
+      const province = addr.state || addr.city || addr.province || "";
+      const ward = addr.suburb || addr.quarter || addr.village || addr.town || addr.city_district || "";
+      const road = [addr.house_number, addr.road].filter(Boolean).join(" ");
+      return {
+        label: row.display_name || text,
+        lat,
+        lng,
+        province: province || undefined,
+        ward: ward || undefined,
+        address: road || row.display_name || text,
+      };
+    })
+    .filter(Boolean) as PlaceHit[];
+  searchCache.set(key, hits);
+  return hits;
+}
+
 export async function geocode(query: string): Promise<Coord | null> {
   const text = query.replace(/\s+/g, " ").trim();
   if (text.length < 2) return null;
   const known = placeFromText(text);
   if (known?.lat != null && known.lng != null) return { lat: known.lat, lng: known.lng };
   if (geocodeCache.has(text)) return geocodeCache.get(text) || null;
+  const hits = await searchPlaces(text, 1);
+  const coord = hits[0] ? { lat: hits[0].lat, lng: hits[0].lng } : null;
+  geocodeCache.set(text, coord);
+  return coord;
+}
+
+export async function routeEstimate(origin: Coord, dest: Coord): Promise<RouteEstimate> {
+  const key = `${origin.lat.toFixed(5)},${origin.lng.toFixed(5)}>${dest.lat.toFixed(5)},${dest.lng.toFixed(5)}`;
+  if (routeCache.has(key)) return routeCache.get(key)!;
+  const straightKm = haversineKm(origin, dest);
+  const fallback: RouteEstimate = {
+    distanceKm: Math.round(straightKm * 100) / 100,
+    durationMin: Math.max(1, Math.round((straightKm / 35) * 60)),
+    source: "straight",
+  };
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 2500);
+  const timer = setTimeout(() => ctrl.abort(), 4000);
   try {
-    const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=vn&q=${encodeURIComponent(`${text}, Vietnam`)}`;
-    const res = await fetch(url, {
-      signal: ctrl.signal,
-      headers: {
-        "User-Agent": "ANTS-Vietnam-Freight/1.0 (address-match)",
-        Accept: "application/json",
-      },
-    });
-    if (!res.ok) return null;
-    const data = (await res.json()) as Array<{ lat?: string; lon?: string }>;
-    const hit = data[0];
-    const lat = Number(hit?.lat);
-    const lng = Number(hit?.lon);
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-      geocodeCache.set(text, null);
-      return null;
+    const url = `https://router.project-osrm.org/route/v1/driving/${origin.lng},${origin.lat};${dest.lng},${dest.lat}?overview=false`;
+    const res = await fetch(url, { signal: ctrl.signal, headers: { Accept: "application/json" } });
+    if (!res.ok) {
+      routeCache.set(key, fallback);
+      return fallback;
     }
-    const coord = { lat, lng };
-    geocodeCache.set(text, coord);
-    return coord;
+    const data = (await res.json()) as { routes?: Array<{ distance?: number; duration?: number }> };
+    const route = data.routes?.[0];
+    if (!route?.distance) {
+      routeCache.set(key, fallback);
+      return fallback;
+    }
+    const estimate: RouteEstimate = {
+      distanceKm: Math.round((route.distance / 1000) * 100) / 100,
+      durationMin: Math.max(1, Math.round((route.duration || 0) / 60)),
+      source: "osrm",
+    };
+    routeCache.set(key, estimate);
+    return estimate;
   } catch {
-    geocodeCache.set(text, null);
-    return null;
+    routeCache.set(key, fallback);
+    return fallback;
   } finally {
     clearTimeout(timer);
   }
+}
+
+export function formatRouteLabel(estimate: RouteEstimate) {
+  const hours = Math.floor(estimate.durationMin / 60);
+  const mins = estimate.durationMin % 60;
+  const time = hours > 0 ? `${hours} 小时 ${mins} 分钟` : `${mins} 分钟`;
+  const note = estimate.source === "straight" ? "（直线距离，供参考）" : "";
+  return `约 ${estimate.distanceKm} 公里 · 约 ${time}${note}`;
 }

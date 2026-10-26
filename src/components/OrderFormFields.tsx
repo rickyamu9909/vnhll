@@ -7,6 +7,8 @@ import { useI18n } from "@/components/I18nProvider";
 import { apiFetch, vehicleLabel } from "@/lib/client";
 import { savedToForm, volumeFromItems, type SavedAddressInput } from "@/lib/order-form";
 import { knownProvince, provinceOptions, wardsOf } from "@/lib/regions";
+import { AddressSuggest } from "@/components/AddressSuggest";
+import { RouteDistanceBanner } from "@/components/RouteDistanceBanner";
 import { FREIGHT_PLACES } from "@/lib/places";
 
 const cargoTypes = [
@@ -66,8 +68,20 @@ function PlaceSelect({ side }: { side: "origin" | "dest" }) {
             if (!place) return;
             form.setFieldsValue(
               side === "origin"
-                ? { originProvince: place.province, originCity: place.ward, originAddress: place.address, originLat: place.lat, originLng: place.lng }
-                : { destProvince: place.province, destCity: place.ward, destAddress: place.address, destLat: place.lat, destLng: place.lng }
+                ? {
+                    originProvince: place.province || undefined,
+                    originCity: place.ward || undefined,
+                    originAddress: place.address,
+                    originLat: place.lat,
+                    originLng: place.lng,
+                  }
+                : {
+                    destProvince: place.province || undefined,
+                    destCity: place.ward || undefined,
+                    destAddress: place.address,
+                    destLat: place.lat,
+                    destLng: place.lng,
+                  }
             );
           }}
         />
@@ -217,6 +231,7 @@ export function OrderFormFields({ addressUserId, addressMode = "self" }: { addre
 
   return (
     <div className="compact-form">
+      <RouteDistanceBanner />
       <div className="order-section">{t("form.section_origin", "起运")}</div>
       {addressMode === "customer" && !addressUserId ? (
         <div style={{ fontSize: 12, color: "#64748b", marginBottom: 8 }}>{t("form.need_customer", "选择客户后可使用常用地址")}</div>
@@ -226,10 +241,8 @@ export function OrderFormFields({ addressUserId, addressMode = "self" }: { addre
       <Row gutter={8}>
         <PlaceSelect side="origin" />
         <RegionSelects side="origin" />
-        <Col xs={12} md={5}>
-          <Form.Item name="originAddress" label={t("form.address", "详细地址")}>
-            <Input placeholder={t("form.place_or_street", "选了堆场或码头后可以不填")} />
-          </Form.Item>
+        <Col xs={24} md={5}>
+          <AddressSuggest side="origin" placeholder={t("form.place_or_street", "选了堆场或码头后可以不填；也可输入街道联想")} />
         </Col>
         <Form.Item name="originLat" hidden><Input /></Form.Item>
         <Form.Item name="originLng" hidden><Input /></Form.Item>
@@ -257,10 +270,8 @@ export function OrderFormFields({ addressUserId, addressMode = "self" }: { addre
       <Row gutter={8}>
         <PlaceSelect side="dest" />
         <RegionSelects side="dest" />
-        <Col xs={12} md={5}>
-          <Form.Item name="destAddress" label={t("form.address", "详细地址")}>
-            <Input placeholder={t("form.place_or_street", "选了堆场或码头后可以不填")} />
-          </Form.Item>
+        <Col xs={24} md={5}>
+          <AddressSuggest side="dest" placeholder={t("form.place_or_street", "选了堆场或码头后可以不填；也可输入街道联想")} />
         </Col>
         <Form.Item name="destLat" hidden><Input /></Form.Item>
         <Form.Item name="destLng" hidden><Input /></Form.Item>
@@ -304,7 +315,11 @@ export function OrderFormFields({ addressUserId, addressMode = "self" }: { addre
           </Form.Item>
         </Col>
         <Col xs={12} md={4}>
-          <Form.Item name="targetPriceVnd" label={t("form.price", "目标价")}>
+          <Form.Item
+            name="targetPriceVnd"
+            label={t("form.price", "目标价")}
+            extra="填价=出价接单；不填=询价报价。平台不提供参考价。"
+          >
             <InputNumber min={0} style={{ width: "100%" }} placeholder={t("form.inquiry", "不填则询价")} />
           </Form.Item>
         </Col>

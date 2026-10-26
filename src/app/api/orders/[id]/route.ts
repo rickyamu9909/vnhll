@@ -73,6 +73,9 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
   }
   view.driverName = showDriver && who ? who.displayName || who.username : null;
   view.plateNumber = showDriver ? plate : null;
+  view.suggestCount = await prisma.matchSuggestion.count({
+    where: { orderId: order.id, status: { in: ["PENDING", "CUSTOMER_OK", "DRIVER_OK", "MATCHED"] } },
+  });
   delete view.acceptedBy;
   delete view.assignedTo;
   return jsonOk(view);

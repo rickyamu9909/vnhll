@@ -33,7 +33,7 @@ export default function TasksPage() {
         <Table
           rowKey="id"
           loading={loading}
-          locale={{ emptyText: "暂无待执行任务。轨迹条上的订单会出现在这里。" }}
+          locale={{ emptyText: "暂无待接货任务。在货源大厅抢单或主账号分配后，任务会出现在这里。" }}
           dataSource={shown}
           scroll={{ x: 1600 }}
           pagination={{ pageSize: 15, showSizeChanger: true, pageSizeOptions: ["15", "25", "50", "100", "500"], showTotal: (total) => `共 ${total} 条` }}

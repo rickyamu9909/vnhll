@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { Button, Card, Descriptions, Modal, Space, Table, Tag, Typography, message } from "antd";
+import { useParams, useSearchParams } from "next/navigation";
+import { Button, Card, Descriptions, Modal, Space, Steps, Table, Tag, Typography, message } from "antd";
 import dayjs from "dayjs";
 import { CustomerShell } from "@/components/CustomerShell";
 import { BackButton } from "@/components/BackButton";
+import { PostPublishGuide } from "@/components/PostPublishGuide";
 import { useI18n } from "@/components/I18nProvider";
 import { apiFetch, statusLabel, vehicleLabel } from "@/lib/client";
 import { formatVnd } from "@/lib/money";
@@ -34,12 +35,33 @@ type OrderDetail = {
   dealPriceVnd?: string | null;
   driverName?: string | null;
   plateNumber?: string | null;
+  waitDeadline?: string | null;
+  routeDistanceKm?: number | null;
+  routeDurationMin?: number | null;
+  routeSource?: string | null;
+  suggestCount?: number;
   carrierBids?: Array<{ id: string; priceVnd: string; bidderName: string }>;
   matchedDriver?: { name: string; plateNumber?: string | null } | null;
 };
 
-export default function OrderDetailPage() {
+const STEP_MAP: Record<string, number> = {
+  OPEN: 1,
+  BIDDING: 1,
+  PENDING_CONFIRM: 1,
+  PENDING_EXECUTION: 2,
+  MATCHED: 2,
+  IN_TRANSIT: 3,
+  DELIVERED: 4,
+  COMPLETED: 5,
+  FAILED: 1,
+  CANCELLED: 0,
+  REJECTED: 0,
+};
+
+function OrderDetailInner() {
   const { id } = useParams<{ id: string }>();
+  const search = useSearchParams();
+  const fresh = search.get("fresh") === "1";
   const { t } = useI18n();
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [loading, setLoading] = useState(false);
@@ -108,6 +130,46 @@ export default function OrderDetailPage() {
           {t("order.order_no", "订单号")}：{order.orderNo}
         </Typography.Title>
       </Space>
+      {fresh && order.status === "OPEN" ? (
+        <PostPublishGuide
+          orderId={order.id}
+          orderNo={order.orderNo}
+          matchPath={order.matchPath}
+          waitDeadline={order.waitDeadline}
+          routeLabel={
+            order.routeDistanceKm != null
+              ? `约 ${order.routeDistanceKm} 公里${order.routeDurationMin != null ? ` · 约 ${order.routeDurationMin} 分钟` : ""}${order.routeSource === "straight" ? "（直线）" : ""}`
+              : null
+          }
+        />
+      ) : null}
+      <Card size="small" style={{ marginBottom: 12 }}>
+        <Steps
+          size="small"
+          current={STEP_MAP[order.status] ?? 0}
+          items={[
+            { title: "发布" },
+            { title: "匹配中" },
+            { title: "待执行" },
+            { title: "运输中" },
+            { title: "已送达" },
+            { title: "已完成" },
+          ]}
+        />
+        {order.suggestCount != null ? (
+          <Typography.Paragraph type="secondary" style={{ marginTop: 12, marginBottom: 0 }}>
+            已推送 {order.suggestCount} 位顺路司机
+            {order.waitDeadline ? ` · 匹配截止 ${dayjs(order.waitDeadline).format("MM-DD HH:mm")}` : ""}
+          </Typography.Paragraph>
+        ) : null}
+        {["FAILED", "REJECTED"].includes(order.status) ? (
+          <Link href={`/orders/new?from=${id}`}>
+            <Button type="primary" size="small" style={{ marginTop: 8 }}>
+              改价重发
+            </Button>
+          </Link>
+        ) : null}
+      </Card>
       <Card
         extra={
           <Space wrap>
@@ -238,5 +300,13 @@ export default function OrderDetailPage() {
         ) : null}
       </Card>
     </CustomerShell>
+  );
+}
+
+export default function OrderDetailPage() {
+  return (
+    <Suspense fallback={<CustomerShell selected="orders"><Card loading /></CustomerShell>}>
+      <OrderDetailInner />
+    </Suspense>
   );
 }

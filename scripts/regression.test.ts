@@ -4,6 +4,7 @@ import { buildDeadlines, parseOrderBody, stripCustomer } from "../src/lib/market
 import { calcByBps } from "../src/lib/money";
 import { orderToFormValues, pickupIsPast, savedToForm, volumeFromItems } from "../src/lib/order-form";
 import { haversineKm, matchPair } from "../src/lib/geo";
+import { scoreRouteFit, SUGGEST_MIN_SCORE } from "../src/lib/route-score";
 import { cleanRecordedAt, trackFreshness, validCoord } from "../src/lib/track";
 import { assertOrderRegion, knownProvince, provinceOptions, REGION_COUNTS, wardsOf } from "../src/lib/regions";
 import { capacityMatchBlock, placeById } from "../src/lib/places";
@@ -117,8 +118,8 @@ describe("建单校验", () => {
         originPlaceId: "port-cat-lai",
       })
     );
-    assert.equal(parsed.originProvince, "");
-    assert.equal(parsed.originCity, "");
+    assert.equal(parsed.originProvince, "Thành phố Hồ Chí Minh");
+    assert.equal(parsed.originCity, "Phường Cát Lái");
     assert.equal(parsed.originAddress, "Cát Lái");
     assert.equal(parsed.originLat, placeById("port-cat-lai")?.lat);
     assert.equal(capacityMatchBlock("MATCHED"), "这条运力已经匹配成功，不能再次发起。请到订单里查看结果");
@@ -209,24 +210,48 @@ describe("历史订单复制与常用地址", () => {
   });
 });
 
-describe("5公里撮合", () => {
-  const origin = { lat: 21.0285, lng: 105.8542 };
-  const near = { lat: 21.0285 + 4 / 111, lng: 105.8542 };
-  const far = { lat: 21.0285 + 8 / 111, lng: 105.8542 };
+describe("顺路度打分", () => {
+  const origin = { lat: 10.7636, lng: 106.7858 };
+  const near = { lat: 10.77, lng: 106.79 };
+  const dest = { lat: 10.9, lng: 106.82 };
+  const far = { lat: 16.0, lng: 108.0 };
 
-  it("有目的地偏好时，用客户送货地址对司机目的地", () => {
-    const hit = matchPair({ origin, dest: origin }, { location: far, dest: near });
+  it("近距离空车且方向顺路时分数高", () => {
+    const hit = scoreRouteFit({
+      orderOrigin: origin,
+      orderDest: dest,
+      pickupAt: new Date("2026-12-01T08:00:00.000Z"),
+      vehicleType: "TON_3_5",
+      weightTons: 2,
+      capLocation: near,
+      capDest: dest,
+      availableFrom: new Date("2026-12-01T00:00:00.000Z"),
+      availableTo: new Date("2026-12-02T00:00:00.000Z"),
+      capVehicleType: "TON_3_5",
+      loadTons: 3.5,
+      cargoTypes: "GENERAL",
+    });
     assert.ok(hit);
-    assert.equal(hit.basis, "DEST");
-    assert.ok(hit.km <= 5);
-    assert.equal(matchPair({ origin, dest: origin }, { location: near, dest: far }), null);
+    assert.ok(hit!.score >= SUGGEST_MIN_SCORE);
+    assert.equal(hit!.level, "high");
+    assert.match(hit!.reason, /顺路度/);
   });
 
-  it("没有目的地偏好时，用司机当前位置对客户接货地址", () => {
-    const hit = matchPair({ origin, dest: far }, { location: near });
+  it("空车过远时分数低或不达标", () => {
+    const hit = scoreRouteFit({
+      orderOrigin: origin,
+      orderDest: dest,
+      capLocation: far,
+      loadTons: 10,
+      weightTons: 1,
+    });
     assert.ok(hit);
-    assert.equal(hit.basis, "PICKUP");
-    assert.equal(matchPair({ origin, dest: near }, { location: far }), null);
+    assert.ok(hit!.score < 70);
+  });
+
+  it("旧 5km 过滤仍可用于兼容校验", () => {
+    const hit = matchPair({ origin, dest: origin }, { location: near });
+    assert.ok(hit);
     assert.ok(haversineKm(origin, origin) < 0.001);
   });
 });

@@ -8,6 +8,7 @@ import { Button, Drawer, Layout, Menu, Space } from "antd";
 import { LocaleSwitch } from "@/components/LocaleSwitch";
 import { useI18n } from "@/components/I18nProvider";
 import { apiFetch } from "@/lib/client";
+import { PendingBanner } from "@/components/PendingBanner";
 import { TrackReporter } from "@/components/TrackReporter";
 
 const { Header, Content } = Layout;
@@ -61,6 +62,7 @@ export function DriverShell({ children }: { children: React.ReactNode }) {
       </Drawer>
       <Content className="page-content" style={{ maxWidth: 1100, width: "100%", margin: "24px auto", padding: "0 16px" }}>
         <TrackReporter />
+        <PendingBanner />
         {children}
       </Content>
     </Layout>

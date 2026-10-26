@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Card, Table, Typography, message } from "antd";
+import { Card, Space, Tag, Typography, message } from "antd";
 import { CustomerShell } from "@/components/CustomerShell";
 import { QueryFields } from "@/components/QueryFields";
 import { apiFetch, vehicleLabel } from "@/lib/client";
@@ -20,6 +20,9 @@ type Row = {
   portOk: boolean;
   expectedPriceVnd: string;
   publisherName: string;
+  score?: number;
+  scoreLevel?: string | null;
+  reason?: string | null;
 };
 
 export default function CapacityHallPage() {
@@ -48,7 +51,7 @@ export default function CapacityHallPage() {
   return (
     <CustomerShell selected="capacity">
       <Typography.Title level={3}>运力大厅</Typography.Title>
-      <Card>
+      <Card size="small" style={{ marginBottom: 12 }}>
         <QueryFields
           fields={[
             { name: "location", placeholder: "空车位置" },
@@ -59,21 +62,32 @@ export default function CapacityHallPage() {
           ]}
           onSearch={setQuery}
         />
-        <Table
-          rowKey="id"
-          dataSource={shown}
-          pagination={{ pageSize: 15, showSizeChanger: true, pageSizeOptions: ["15", "25", "50", "100", "500"] }}
-          columns={[
-            { title: "空车位置", dataIndex: "location" },
-            { title: "目的偏好", dataIndex: "destPreference", render: (v) => v || "-" },
-            { title: "车型", dataIndex: "vehicleType", render: (value) => vehicleLabel(value, t) },
-            { title: "载重吨", dataIndex: "loadTons" },
-            { title: "机场/港口", render: (_, r) => `${r.airportOk ? "可进机场" : "不可进机场"} / ${r.portOk ? "可进港口" : "不可进港口"}` },
-            { title: "期望价", dataIndex: "expectedPriceVnd", render: (v) => formatVnd(v) },
-            { title: "操作", render: (_, r) => <Link href={`/orders/capacity/${r.id}`}>发起匹配</Link> },
-          ]}
-        />
       </Card>
+      <Space direction="vertical" style={{ width: "100%" }} size={12}>
+        {shown.map((row) => (
+          <Card key={row.id} size="small">
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+              <div>
+                <Typography.Text strong>{row.location}</Typography.Text>
+                <div style={{ color: "#64748b" }}>→ {row.destPreference || "目的不限"}</div>
+              </div>
+              <Space wrap>
+                {row.scoreLevel ? <Tag color={row.scoreLevel === "高" ? "green" : row.scoreLevel === "中" ? "blue" : "default"}>顺路度{row.scoreLevel}</Tag> : null}
+                <Tag>{vehicleLabel(row.vehicleType, t)}</Tag>
+              </Space>
+            </div>
+            {row.reason ? <div style={{ marginTop: 6, fontSize: 12, color: "#475569" }}>{row.reason}</div> : null}
+            <div style={{ marginTop: 6, fontSize: 13 }}>
+              {formatVnd(row.expectedPriceVnd)} VND · {row.loadTons} 吨 · {row.publisherName}
+              {` · ${row.airportOk ? "可进机场" : "不可进机场"} / ${row.portOk ? "可进港口" : "不可进港口"}`}
+            </div>
+            <Link href={`/orders/capacity/${row.id}`} style={{ display: "inline-block", marginTop: 8 }}>
+              发起匹配
+            </Link>
+          </Card>
+        ))}
+        {!shown.length ? <Card size="small">暂无可匹配运力。你有进行中订单时，这里会按顺路度排序。</Card> : null}
+      </Space>
     </CustomerShell>
   );
 }
