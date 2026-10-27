@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card, Table, Tabs, Typography, message } from "antd";
 import { DriverShell } from "@/components/DriverShell";
+import { MatchSuggestions } from "@/components/MatchSuggestions";
 import { orderColumns, orderLink } from "@/components/OrderListBits";
 import { QueryFields } from "@/components/QueryFields";
 import { apiFetch } from "@/lib/client";
@@ -27,6 +28,7 @@ export default function MyDriverOrders() {
   return (
     <DriverShell>
       <Typography.Title level={3}>我的订单</Typography.Title>
+      <MatchSuggestions />
       <Card>
         <Tabs activeKey={tab} onChange={setTab} items={DRIVER_NODE_TABS.map((item) => ({ key: item.key, label: item.label }))} />
         <QueryFields fields={ORDER_QUERY_FIELDS} onSearch={setQuery} />

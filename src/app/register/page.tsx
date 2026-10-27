@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Button, Card, Form, Input, Typography, message, Alert } from "antd";
 import { LocaleSwitch } from "@/components/LocaleSwitch";
+import { PhotoPicker } from "@/components/PhotoPicker";
 import { useI18n } from "@/components/I18nProvider";
 import { apiFetch } from "@/lib/client";
 
@@ -64,6 +65,9 @@ export default function RegisterPage() {
             </Form.Item>
             <Form.Item name="address" label={t("auth.company_address", "企业地址")}>
               <Input.TextArea rows={2} placeholder={t("form.optional", "选填")} />
+            </Form.Item>
+            <Form.Item name="licenseImage" label={t("auth.license", "营业执照")}>
+              <PhotoPicker />
             </Form.Item>
             <Button type="primary" htmlType="submit" block loading={loading}>
               {t("action.submit", "提交注册")}

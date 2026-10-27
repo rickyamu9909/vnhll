@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Alert, Badge, Button } from "antd";
+import { Alert, Badge, Space, message } from "antd";
+import { ActionButton } from "@/components/ActionButton";
 import { apiFetch } from "@/lib/client";
 
 type Note = { id: string; title: string; body: string; read: boolean; createdAt: string; link?: string | null };
@@ -26,14 +27,27 @@ function isRegNote(note: Note) {
   return REG_TITLES.some((t) => note.title.includes(t));
 }
 
+function parseMeta(body: string) {
+  const suggestId = body.match(/#suggest:([A-Za-z0-9_-]+)/)?.[1];
+  const negId = body.match(/#neg:([A-Za-z0-9_-]+)/)?.[1];
+  const href = body.match(/#href:(\/[^\s#]+)/)?.[1];
+  return { suggestId, negId, href };
+}
+
+function cleanBody(body: string) {
+  return body.replace(/\n?#suggest:[^\s]+/g, "").replace(/\n?#neg:[^\s]+/g, "").replace(/\n?#href:[^\s]+/g, "").trim();
+}
+
 function parseLink(note: Note, fallbackHref: string) {
   if (note.link) return note.link;
+  const meta = parseMeta(note.body);
+  if (meta.href) return meta.href;
   const match = note.body.match(/ANTS-\d{8}-\d+/);
   if (!match) return fallbackHref;
   if (typeof window !== "undefined" && window.location.pathname.startsWith("/driver")) {
-    return `/driver/orders`;
+    return note.title.includes("撮合") || note.title.includes("顺路") || note.title.includes("协商") ? "/driver/capacity" : "/driver/orders";
   }
-  return `/orders`;
+  return note.title.includes("报价") ? `/orders` : `/orders`;
 }
 
 async function notifyOnce(note: Note, fallbackHref: string) {
@@ -53,7 +67,7 @@ async function notifyOnce(note: Note, fallbackHref: string) {
   }
   if (Notification.permission !== "granted") return;
   try {
-    const n = new Notification(note.title, { body: note.body, tag: note.id });
+    const n = new Notification(note.title, { body: cleanBody(note.body), tag: note.id });
     n.onclick = () => {
       window.focus();
       window.location.href = parseLink(note, fallbackHref);
@@ -74,13 +88,13 @@ export function PendingBanner({
   const router = useRouter();
   const [latest, setLatest] = useState<Note | null>(null);
   const [unread, setUnread] = useState(0);
+  const [acting, setActing] = useState(false);
 
   const load = async () => {
     const res = await apiFetch<Note[]>(api);
     if (!res.ok) return;
     const rows = res.data || [];
     const fresh = rows.filter((row) => !row.read);
-    // 已登录用户不再提示「注册已通过」——自动标已读
     const regIds = fresh.filter(isRegNote).map((n) => n.id);
     if (regIds.length) {
       await apiFetch(api, { method: "POST", body: JSON.stringify({ ids: regIds }) });
@@ -97,9 +111,13 @@ export function PendingBanner({
     return () => clearInterval(timer);
   }, [api, fallbackHref]);
 
+  const markRead = async (ids: string[]) => {
+    await apiFetch(api, { method: "POST", body: JSON.stringify({ ids }) });
+  };
+
   const markAndOpen = async () => {
     if (!latest) return;
-    await apiFetch(api, { method: "POST", body: JSON.stringify({ ids: [latest.id] }) });
+    await markRead([latest.id]);
     const href = parseLink(latest, fallbackHref);
     setLatest(null);
     setUnread((n) => Math.max(0, n - 1));
@@ -107,14 +125,63 @@ export function PendingBanner({
     load();
   };
 
+  const respondSuggest = async (accept: boolean) => {
+    if (!latest) return;
+    const { suggestId } = parseMeta(latest.body);
+    if (!suggestId) return markAndOpen();
+    setActing(true);
+    const res = await apiFetch(`/api/suggestions/${suggestId}`, {
+      method: "POST",
+      body: JSON.stringify({ accept }),
+    });
+    setActing(false);
+    if (!res.ok) {
+      message.error(res.message || "处理失败");
+      return;
+    }
+    message.success(accept ? "已确认撮合" : "已拒绝");
+    await markRead([latest.id]);
+    setLatest(null);
+    setUnread((n) => Math.max(0, n - 1));
+    load();
+    if (accept) router.push(fallbackHref.startsWith("/driver") ? "/driver/orders" : "/orders");
+  };
+
+  const respondNeg = async (accept: boolean) => {
+    if (!latest) return;
+    const { negId } = parseMeta(latest.body);
+    if (!negId) return markAndOpen();
+    setActing(true);
+    const res = await apiFetch(`/api/driver/negotiations/${negId}`, {
+      method: "POST",
+      body: JSON.stringify({ accept }),
+    });
+    setActing(false);
+    if (!res.ok) {
+      message.error(res.message || "处理失败");
+      return;
+    }
+    message.success(accept ? "已接受协商，订单进入待执行" : "已拒绝协商");
+    await markRead([latest.id]);
+    setLatest(null);
+    setUnread((n) => Math.max(0, n - 1));
+    load();
+    if (accept) router.push("/driver/orders");
+  };
+
   if (!latest || unread <= 0) return null;
+
+  const meta = parseMeta(latest.body);
+  const canSuggest = !!meta.suggestId && (latest.title.includes("撮合") || latest.title.includes("顺路"));
+  const canNeg = !!meta.negId && latest.title.includes("协商");
+
   return (
     <Alert
       type="warning"
       showIcon
       closable
       onClose={async () => {
-        await apiFetch(api, { method: "POST", body: JSON.stringify({ ids: [latest.id] }) });
+        await markRead([latest.id]);
         setLatest(null);
         setUnread((n) => Math.max(0, n - 1));
       }}
@@ -127,11 +194,33 @@ export function PendingBanner({
           {`：${latest.title}`}
         </span>
       }
-      description={latest.body}
+      description={cleanBody(latest.body)}
       action={
-        <Button type="primary" size="small" onClick={markAndOpen}>
-          查看
-        </Button>
+        <Space direction="vertical" size={6}>
+          {canSuggest ? (
+            <>
+              <ActionButton tone="primary" loading={acting} onClick={() => respondSuggest(true)}>
+                确认匹配
+              </ActionButton>
+              <ActionButton tone="danger" loading={acting} onClick={() => respondSuggest(false)}>
+                不匹配
+              </ActionButton>
+            </>
+          ) : canNeg ? (
+            <>
+              <ActionButton tone="primary" loading={acting} onClick={() => respondNeg(true)}>
+                接受协商
+              </ActionButton>
+              <ActionButton tone="danger" loading={acting} onClick={() => respondNeg(false)}>
+                拒绝
+              </ActionButton>
+            </>
+          ) : (
+            <ActionButton tone="primary" onClick={markAndOpen}>
+              查看
+            </ActionButton>
+          )}
+        </Space>
       }
     />
   );

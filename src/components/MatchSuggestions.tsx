@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Card, Space, Tag, Typography, message } from "antd";
+import { Alert, Card, Space, Tag, Typography, message } from "antd";
 import dayjs from "dayjs";
 import { ActionButton } from "@/components/ActionButton";
 import { useI18n } from "@/components/I18nProvider";
@@ -58,16 +58,30 @@ export function MatchSuggestions() {
   };
 
   if (!rows.length) return null;
+
+  const needConfirm = rows.filter((row) => !row.waiting && (row.status === "CUSTOMER_OK" || row.status === "DRIVER_OK"));
+
   return (
     <Card size="small" title={t("suggest.title", "顺路可撮合")} style={{ marginBottom: 16 }}>
+      {needConfirm.length ? (
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 12 }}
+          message="对方已确认顺路撮合，请点击「确认匹配」完成闭环，订单才会进入待执行。"
+        />
+      ) : null}
       <Space direction="vertical" style={{ width: "100%" }}>
         {rows.map((row) => {
           const detailHref = row.mine === "driver" ? `/driver/orders/${row.orderId || ""}` : `/orders/${row.orderId || ""}`;
+          const peerConfirmed =
+            (row.mine === "customer" && row.status === "DRIVER_OK") || (row.mine === "driver" && row.status === "CUSTOMER_OK");
           return (
             <div key={row.id} style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
               <div>
                 <Typography.Text strong>{row.orderNo}</Typography.Text> {levelTag(row.score)}
                 {row.deadline ? <Tag>{dayjs(row.deadline).format("HH:mm")} 前有效</Tag> : null}
+                {peerConfirmed ? <Tag color="orange">对方已确认，待你确认</Tag> : null}
                 <div style={{ color: "#475569", fontSize: 13 }}>{row.reason || `${row.pickup} → ${row.delivery}`}</div>
                 <div style={{ color: "#64748b", fontSize: 12 }}>
                   {row.pickup} → {row.delivery}
@@ -77,9 +91,13 @@ export function MatchSuggestions() {
                 </div>
               </div>
               <Space wrap>
-                {row.orderId ? <ActionButton href={detailHref} tone="cyan">订单详情</ActionButton> : null}
+                {row.orderId ? (
+                  <ActionButton href={detailHref} tone="cyan">
+                    订单详情
+                  </ActionButton>
+                ) : null}
                 {row.waiting ? (
-                  <Typography.Text type="secondary">{t("suggest.wait", "已确认，等待对方")}</Typography.Text>
+                  <Typography.Text type="secondary">{t("suggest.wait", "已确认，等待对方确认")}</Typography.Text>
                 ) : (
                   <>
                     <ActionButton tone="primary" onClick={() => act(row.id, true)}>

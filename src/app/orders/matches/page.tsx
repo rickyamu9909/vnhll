@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Card, Table, Typography, message } from "antd";
 import { ActionButton } from "@/components/ActionButton";
 import { CustomerShell } from "@/components/CustomerShell";
+import { MatchSuggestions } from "@/components/MatchSuggestions";
 import { apiFetch } from "@/lib/client";
 import { formatVnd } from "@/lib/money";
 
@@ -21,6 +22,7 @@ export default function MatchesPage() {
   return (
     <CustomerShell selected="matches">
       <Typography.Title level={3}>我的匹配</Typography.Title>
+      <MatchSuggestions />
       <Card>
         <Table
           rowKey="id"

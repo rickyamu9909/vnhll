@@ -13,6 +13,10 @@ export async function POST(req: NextRequest) {
   const contactName = String(body.contactName || "").trim();
   const taxCode = String(body.taxCode || "").trim();
   const address = String(body.address || "").trim();
+  const licenseImage = String(body.licenseImage || body.licenseNo || "").trim();
+  if (licenseImage && (!licenseImage.startsWith("data:image/") || licenseImage.length > 250_000)) {
+    return jsonFail("营业执照图片无效或过大");
+  }
 
   if (!username || !password || !companyName || !contactPhone || !contactName) {
     return jsonFail("手机号、密码、企业名称、联系人为必填");
@@ -38,6 +42,7 @@ export async function POST(req: NextRequest) {
           contactName: contactName || null,
           contactPhone: contactPhone || null,
           address: address || null,
+          licenseImage: licenseImage || null,
         },
       },
     },

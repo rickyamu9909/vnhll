@@ -59,7 +59,7 @@ export function DriverShell({ children }: { children: React.ReactNode }) {
       </Drawer>
       <Content className="page-content" style={{ maxWidth: 1100, width: "100%", margin: "24px auto", padding: "0 16px" }}>
         <TrackReporter />
-        <PendingBanner api="/api/driver/notifications" fallbackHref="/driver/notifications" />
+        <PendingBanner api="/api/driver/notifications" fallbackHref="/driver/capacity" />
         {children}
       </Content>
     </Layout>

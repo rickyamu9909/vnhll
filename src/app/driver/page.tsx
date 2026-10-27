@@ -6,6 +6,7 @@ import { Card, Input, Space, Tag, Typography, message } from "antd";
 import dayjs from "dayjs";
 import { ActionButton } from "@/components/ActionButton";
 import { DriverShell } from "@/components/DriverShell";
+import { MatchSuggestions } from "@/components/MatchSuggestions";
 import { QueryFields } from "@/components/QueryFields";
 import { apiFetch, pathLabel, statusLabel } from "@/lib/client";
 import { useI18n } from "@/components/I18nProvider";
@@ -48,6 +49,7 @@ export default function DriverHallPage() {
   return (
     <DriverShell>
       <Typography.Title level={3}>货源大厅</Typography.Title>
+      <MatchSuggestions />
       <Card loading={loading} size="small" style={{ marginBottom: 12 }}>
         <Input.Search allowClear placeholder="按线路关键词筛选，如 Cát Lái" onSearch={setLine} onChange={(e) => !e.target.value && setLine("")} style={{ marginBottom: 8 }} />
         <QueryFields fields={ORDER_QUERY_FIELDS.slice(0, 6)} onSearch={setQuery} />

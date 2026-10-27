@@ -39,8 +39,17 @@ export async function logOp(actorId: string | null, action: string, targetType: 
   });
 }
 
-export async function notify(userId: string, title: string, body: string) {
-  await prisma.notification.create({ data: { userId, title, body } });
+export async function notify(userId: string, title: string, body: string, meta?: { suggestId?: string; negId?: string; href?: string }) {
+  const tags = [
+    meta?.suggestId ? `#suggest:${meta.suggestId}` : "",
+    meta?.negId ? `#neg:${meta.negId}` : "",
+    meta?.href ? `#href:${meta.href}` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  await prisma.notification.create({
+    data: { userId, title, body: tags ? `${body}\n${tags}` : body },
+  });
 }
 
 function addHours(base: Date, hours: number) {
@@ -452,7 +461,9 @@ export async function placeBid(orderId: string, userId: string, priceVnd: bigint
       },
     });
   }
-  await notify(order.customerId, "收到司机报价", `订单 ${order.orderNo} 有新报价 ${priceVnd.toString()} VND，请到订单详情确认。`);
+  await notify(order.customerId, "收到司机报价", `订单 ${order.orderNo} 有新报价 ${priceVnd.toString()} VND，请到订单详情确认。`, {
+    href: `/orders/${order.id}`,
+  });
   await logOp(userId, "ORDER_BID", "order", orderId, priceVnd.toString());
   return bid;
 }
@@ -867,7 +878,10 @@ export async function matchCapacity(capacityId: string, customerId: string, body
   }
   const price = toBigIntMoney(body.priceVnd as number);
   const neg = await negotiationShipment(body, capacityId, customerId, price, addMinutes(new Date(), cfg.negotiateMinutes));
-  await notify(cap.publisherUserId, "新的运力协商", `客户提出价格 ${price.toString()} VND`);
+  await notify(cap.publisherUserId, "新的运力协商", `客户提出价格 ${price.toString()} VND，请确认或拒绝。`, {
+    negId: neg.id,
+    href: "/driver/capacity",
+  });
   await logOp(customerId, "CAPACITY_NEGOTIATE", "capacity", capacityId);
   return neg;
 }
@@ -961,7 +975,7 @@ async function persistSuggestions(
       }
       continue;
     }
-    await prisma.matchSuggestion.create({
+    const created = await prisma.matchSuggestion.create({
       data: {
         orderId: order.id,
         capacityId: cap.id,
@@ -973,9 +987,19 @@ async function persistSuggestions(
         deadline,
       },
     });
-    // 仅首次创建时通知一次，避免轮询/重算反复弹窗
-    await notify(order.customerId, "发现顺路运力", `订单 ${order.orderNo}：${scored.reason}。请在 ${cfg.negotiateMinutes} 分钟内到「我的匹配/订单」确认。`);
-    await notify(cap.publisherUserId, "发现顺路货源", `客户订单 ${order.orderNo}：${scored.reason}。请在 ${cfg.negotiateMinutes} 分钟内到订单详情确认。`);
+    // 仅首次创建时通知一次，避免轮询/重算反复弹窗；通知内带确认入口标记
+    await notify(
+      order.customerId,
+      "发现顺路运力",
+      `订单 ${order.orderNo}：${scored.reason}。请在 ${cfg.negotiateMinutes} 分钟内确认匹配。`,
+      { suggestId: created.id, href: "/orders" }
+    );
+    await notify(
+      cap.publisherUserId,
+      "发现顺路货源",
+      `客户订单 ${order.orderNo}：${scored.reason}。请在 ${cfg.negotiateMinutes} 分钟内确认匹配。`,
+      { suggestId: created.id, href: "/driver/capacity" }
+    );
   }
 }
 
@@ -1126,10 +1150,12 @@ export async function respondSuggestion(id: string, userId: string, accept: bool
   if ((isCustomer && row.status === "CUSTOMER_OK") || (isDriver && row.status === "DRIVER_OK")) return { status: row.status };
   if (next !== "MATCHED") {
     await prisma.matchSuggestion.update({ where: { id }, data: { status: next } });
+    const peerId = isCustomer ? cap.publisherUserId : order.customerId;
     await notify(
-      isCustomer ? cap.publisherUserId : order.customerId,
+      peerId,
       "对方已确认顺路撮合",
-      `订单 ${order.orderNo}：${row.reason || `装货距离约 ${row.distanceKm} 公里`}。请尽快确认。`
+      `订单 ${order.orderNo}：${row.reason || `装货距离约 ${row.distanceKm} 公里`}。请点击确认完成撮合。`,
+      { suggestId: id, href: isCustomer ? "/driver/capacity" : "/orders" }
     );
     return { status: next };
   }
