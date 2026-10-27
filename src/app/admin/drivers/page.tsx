@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Button, Card, Col, Form, Image, Input, Modal, Row, Select, Space, Table, Tag, Typography, message } from "antd";
+import { ActionButton } from "@/components/ActionButton";
 import { AdminShell } from "@/components/AdminShell";
 import { QueryFields } from "@/components/QueryFields";
 import { PhotoPicker } from "@/components/PhotoPicker";
@@ -186,21 +187,21 @@ export default function AdminDriversPage() {
             {
               title: "操作",
               render: (_, r) => (
-                <Space>
+                <Space wrap>
                   {r.status === "PENDING" && (
                     <>
-                      <Button size="small" type="primary" onClick={() => act(r.id, "approve")}>
+                      <ActionButton tone="primary" onClick={() => act(r.id, "approve")}>
                         通过
-                      </Button>
-                      <Button size="small" danger onClick={() => act(r.id, "reject", "资质不符")}>
+                      </ActionButton>
+                      <ActionButton tone="danger" onClick={() => act(r.id, "reject", "资质不符")}>
                         拒绝
-                      </Button>
+                      </ActionButton>
                     </>
                   )}
                   {r.status === "ACTIVE" && (
-                    <Button size="small" onClick={() => act(r.id, "disable")}>
+                    <ActionButton tone="orange" onClick={() => act(r.id, "disable")}>
                       停用
-                    </Button>
+                    </ActionButton>
                   )}
                 </Space>
               ),

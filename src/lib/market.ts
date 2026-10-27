@@ -389,44 +389,14 @@ async function runSweep() {
     data: { status: NegotiationStatus.EXPIRED },
   });
 
-  const expiredSuggestions = await prisma.matchSuggestion.findMany({
+  // 过期只改状态，不再发通知（创建时已提醒过一次）
+  await prisma.matchSuggestion.updateMany({
     where: {
       status: { in: ["PENDING", "CUSTOMER_OK", "DRIVER_OK"] },
       deadline: { lte: now },
     },
-    take: 100,
+    data: { status: "EXPIRED" },
   });
-  for (const row of expiredSuggestions) {
-    await prisma.matchSuggestion.update({ where: { id: row.id }, data: { status: "EXPIRED" } });
-    const [order, cap] = await Promise.all([
-      prisma.order.findUnique({ where: { id: row.orderId }, select: { customerId: true, orderNo: true } }),
-      prisma.capacity.findUnique({ where: { id: row.capacityId }, select: { publisherUserId: true } }),
-    ]);
-    if (order && cap) {
-      await notify(order.customerId, "撮合建议已过期", `订单 ${order.orderNo} 的顺路匹配已超过有效期`);
-      await notify(cap.publisherUserId, "撮合建议已过期", `订单 ${order.orderNo} 的顺路匹配已超过有效期`);
-    }
-  }
-
-  const halfOk = await prisma.matchSuggestion.findMany({
-    where: {
-      status: { in: ["CUSTOMER_OK", "DRIVER_OK"] },
-      deadline: { gt: now },
-    },
-    take: 50,
-  });
-  for (const row of halfOk) {
-    if (!row.deadline) continue;
-    const remain = row.deadline.getTime() - now.getTime();
-    if (remain > 10 * 60 * 1000) continue;
-    const [order, cap] = await Promise.all([
-      prisma.order.findUnique({ where: { id: row.orderId }, select: { customerId: true, orderNo: true } }),
-      prisma.capacity.findUnique({ where: { id: row.capacityId }, select: { publisherUserId: true } }),
-    ]);
-    if (!order || !cap) continue;
-    const target = row.status === "CUSTOMER_OK" ? cap.publisherUserId : order.customerId;
-    await notify(target, "请尽快确认撮合", `订单 ${order.orderNo} 对方已确认，有效期即将结束`);
-  }
 }
 
 export async function acceptPathA(orderId: string, userId: string) {
@@ -612,6 +582,30 @@ export async function setDriverStage(orderId: string, userId: string, stageKey: 
     },
   });
   await logOp(userId, "ORDER_STAGE", "order", orderId, stageKey);
+  return updated;
+}
+
+export async function cancelDriverStage(orderId: string, userId: string, stageKey: string) {
+  const order = await prisma.order.findUnique({ where: { id: orderId } });
+  if (!order) throw new Error("订单不存在");
+  if (order.acceptedByUserId !== userId && order.assignedToUserId !== userId) throw new Error("无权更新该订单");
+  if (order.driverStage !== stageKey) throw new Error("只能取消当前已锁定的节点");
+  const label = stageKey === DRIVER_ISSUE.key ? DRIVER_ISSUE.label : DRIVER_STAGES.find((s) => s.key === stageKey)?.label || stageKey;
+  const updated = await prisma.order.update({
+    where: { id: orderId },
+    data: {
+      driverStage: null,
+      statusLogs: {
+        create: {
+          fromStatus: order.status,
+          toStatus: order.status,
+          note: `取消节点：${label}`,
+          operatorId: userId,
+        },
+      },
+    },
+  });
+  await logOp(userId, "ORDER_STAGE_CANCEL", "order", orderId, stageKey);
   return updated;
 }
 
@@ -952,7 +946,8 @@ async function persistSuggestions(
       where: { orderId_capacityId: { orderId: order.id, capacityId: cap.id } },
     });
     if (existing) {
-      if (existing.status === "PENDING" || existing.status === "EXPIRED") {
+      // 已过期/已处理的建议不再复活，避免反复出现与重复提醒
+      if (existing.status === "PENDING") {
         await prisma.matchSuggestion.update({
           where: { id: existing.id },
           data: {
@@ -960,7 +955,6 @@ async function persistSuggestions(
             basis: scored.basis,
             score: scored.score,
             reason: scored.reason,
-            status: "PENDING",
             deadline: existing.deadline && existing.deadline > new Date() ? existing.deadline : deadline,
           },
         });

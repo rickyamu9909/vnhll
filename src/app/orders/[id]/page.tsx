@@ -1,10 +1,10 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
-import { Button, Card, Descriptions, Modal, Space, Steps, Table, Tag, Typography, message } from "antd";
+import { Card, Descriptions, Modal, Space, Steps, Table, Tag, Typography, message } from "antd";
 import dayjs from "dayjs";
+import { ActionButton } from "@/components/ActionButton";
 import { CustomerShell } from "@/components/CustomerShell";
 import { BackButton } from "@/components/BackButton";
 import { PostPublishGuide } from "@/components/PostPublishGuide";
@@ -163,31 +163,32 @@ function OrderDetailInner() {
           </Typography.Paragraph>
         ) : null}
         {["FAILED", "REJECTED"].includes(order.status) ? (
-          <Link href={`/orders/new?from=${id}`}>
-            <Button type="primary" size="small" style={{ marginTop: 8 }}>
+          <div style={{ marginTop: 8 }}>
+            <ActionButton href={`/orders/new?from=${id}`} tone="primary">
               改价重发
-            </Button>
-          </Link>
+            </ActionButton>
+          </div>
         ) : null}
       </Card>
       <Card
         extra={
           <Space wrap>
-            <Link href={`/orders/new?from=${id}`}>
-              <Button>复制新建</Button>
-            </Link>
+            <ActionButton href={`/orders/new?from=${id}`} tone="orange">
+              复制新建
+            </ActionButton>
             {["PENDING_REVIEW", "REJECTED", "OPEN", "FAILED"].includes(order.status) ? (
-              <Link href={`/orders/${id}/edit`}>
-                <Button>{t("action.edit", "修改")}</Button>
-              </Link>
+              <ActionButton href={`/orders/${id}/edit`} tone="default">
+                {t("action.edit", "修改")}
+              </ActionButton>
             ) : null}
             {["PENDING_REVIEW", "BIDDING", "REJECTED", "OPEN", "PENDING_CONFIRM", "FAILED"].includes(order.status) && (
-              <Button danger loading={loading} onClick={cancelOrder}>
+              <ActionButton tone="danger" loading={loading} onClick={cancelOrder}>
                 {t("action.cancel", "取消订单")}
-              </Button>
+              </ActionButton>
             )}
             {order.status === "OPEN" && (
-              <Button
+              <ActionButton
+                tone="cyan"
                 loading={loading}
                 onClick={async () => {
                   setLoading(true);
@@ -201,11 +202,11 @@ function OrderDetailInner() {
                 }}
               >
                 延长有效期
-              </Button>
+              </ActionButton>
             )}
             {order.status === "PENDING_CONFIRM" && (
-              <Button
-                danger
+              <ActionButton
+                tone="danger"
                 onClick={async () => {
                   const res = await apiFetch(`/api/orders/${id}`, { method: "POST", body: JSON.stringify({ action: "reject_all" }) });
                   if (!res.ok) message.error(res.message || "操作失败");
@@ -216,12 +217,12 @@ function OrderDetailInner() {
                 }}
               >
                 拒绝全部报价
-              </Button>
+              </ActionButton>
             )}
             {order.status === "DELIVERED" && (
-              <Button type="primary" loading={loading} onClick={confirmComplete}>
+              <ActionButton tone="primary" loading={loading} onClick={confirmComplete}>
                 {t("action.confirm_complete", "确认完成")}
-              </Button>
+              </ActionButton>
             )}
           </Space>
         }
@@ -277,8 +278,8 @@ function OrderDetailInner() {
                 title: "操作",
                 render: (_, row) =>
                   ["PENDING_CONFIRM", "BIDDING", "OPEN"].includes(order.status) ? (
-                    <Button
-                      type="link"
+                    <ActionButton
+                      tone="primary"
                       onClick={async () => {
                         const res = await apiFetch(`/api/orders/${id}`, {
                           method: "POST",
@@ -292,7 +293,7 @@ function OrderDetailInner() {
                       }}
                     >
                       同意该报价
-                    </Button>
+                    </ActionButton>
                   ) : null,
               },
             ]}

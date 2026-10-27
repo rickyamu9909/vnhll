@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { Tag } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
+import { ActionButton } from "@/components/ActionButton";
 import { pathLabel, vehicleLabel } from "@/lib/client";
 import { displayStatus, type OrderListRow } from "@/lib/order-view";
 import { formatVnd } from "@/lib/money";
@@ -34,5 +34,9 @@ export function orderColumns(
 }
 
 export function orderLink(href: string, text: string) {
-  return <Link href={href}>{text}</Link>;
+  return (
+    <ActionButton href={href} tone="primary">
+      {text}
+    </ActionButton>
+  );
 }

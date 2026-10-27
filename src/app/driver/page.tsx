@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Button, Card, Input, Space, Tag, Typography, message } from "antd";
+import { Card, Input, Space, Tag, Typography, message } from "antd";
 import dayjs from "dayjs";
+import { ActionButton } from "@/components/ActionButton";
 import { DriverShell } from "@/components/DriverShell";
 import { QueryFields } from "@/components/QueryFields";
 import { apiFetch, pathLabel, statusLabel } from "@/lib/client";
@@ -83,14 +84,12 @@ export default function DriverHallPage() {
               </div>
               {row.scoreReason ? <div style={{ marginTop: 4, fontSize: 12, color: "#64748b" }}>{row.scoreReason}</div> : null}
               <Space style={{ marginTop: 10 }} wrap>
-                <Link href={`/driver/orders/${row.id}`}>
-                  <Button type="primary" size="small">
-                    {row.matchPath === "A" ? "抢单" : row.matchPath === "B" ? "报价" : "查看"}
-                  </Button>
-                </Link>
-                <Link href={`/driver/orders/${row.id}`}>
-                  <Button size="small">详情</Button>
-                </Link>
+                <ActionButton href={`/driver/orders/${row.id}`} tone="primary">
+                  {row.matchPath === "A" ? "抢单" : row.matchPath === "B" ? "报价" : "查看"}
+                </ActionButton>
+                <ActionButton href={`/driver/orders/${row.id}`} tone="cyan">
+                  详情
+                </ActionButton>
               </Space>
             </Card>
           );

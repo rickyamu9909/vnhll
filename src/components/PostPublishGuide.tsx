@@ -1,8 +1,8 @@
 "use client";
 
-import { Alert, Button, Space, Typography } from "antd";
-import Link from "next/link";
+import { Alert, Space, Typography } from "antd";
 import dayjs from "dayjs";
+import { ActionButton } from "@/components/ActionButton";
 import { pathLabel } from "@/lib/client";
 
 export function PostPublishGuide({
@@ -40,14 +40,12 @@ export function PostPublishGuide({
             <Typography.Text>系统会把顺路司机推到货源侧；请关注报价与确认通知。</Typography.Text>
           )}
           <Space wrap>
-            <Link href={`/orders/${orderId}`}>
-              <Button type="primary" size="small">
-                查看订单进度
-              </Button>
-            </Link>
-            <Link href="/orders">
-              <Button size="small">回我的订单</Button>
-            </Link>
+            <ActionButton href={`/orders/${orderId}`} tone="primary">
+              查看订单进度
+            </ActionButton>
+            <ActionButton href="/orders" tone="default">
+              回我的订单
+            </ActionButton>
           </Space>
         </Space>
       }

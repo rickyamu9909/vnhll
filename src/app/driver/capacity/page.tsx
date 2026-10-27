@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { Button, Card, Modal, Space, Table, Typography, message } from "antd";
+import { Card, Modal, Space, Table, Typography, message } from "antd";
+import { ActionButton } from "@/components/ActionButton";
 import { DriverShell } from "@/components/DriverShell";
 import { MatchSuggestions } from "@/components/MatchSuggestions";
 import { useI18n } from "@/components/I18nProvider";
@@ -52,9 +52,9 @@ export default function CapacityListPage() {
     <DriverShell>
       <div style={{ display: "flex", justifyContent: "space-between" }}>
         <Typography.Title level={3}>{t("cap.mine", "我的运力")}</Typography.Title>
-        <Link href="/driver/capacity/new">
-          <Button type="primary">{t("cap.title", "发布运力")}</Button>
-        </Link>
+        <ActionButton href="/driver/capacity/new" tone="primary">
+          {t("cap.title", "发布运力")}
+        </ActionButton>
       </div>
       <MatchSuggestions />
       <Card>
@@ -82,14 +82,18 @@ export default function CapacityListPage() {
               render: (_, row) => {
                 const orderId = row.orderId || row.negotiations.find((item) => item.orderId)?.orderId;
                 return (
-                  <Space size={4} wrap>
-                    <Link href={`/driver/capacity/${row.id}`}>详情</Link>
-                    {row.status === "OPEN" ? <Link href={`/driver/capacity/${row.id}/edit`}>编辑</Link> : null}
+                  <Space size={6} wrap>
+                    <ActionButton href={`/driver/capacity/${row.id}`} tone="primary">
+                      详情
+                    </ActionButton>
                     {row.status === "OPEN" ? (
-                      <Button
-                        size="small"
-                        type="link"
-                        danger
+                      <ActionButton href={`/driver/capacity/${row.id}/edit`} tone="cyan">
+                        编辑
+                      </ActionButton>
+                    ) : null}
+                    {row.status === "OPEN" ? (
+                      <ActionButton
+                        tone="danger"
                         onClick={() => {
                           Modal.confirm({
                             title: "确认取消这条运力？",
@@ -108,9 +112,13 @@ export default function CapacityListPage() {
                         }}
                       >
                         取消
-                      </Button>
+                      </ActionButton>
                     ) : null}
-                    {orderId ? <Link href={`/driver/orders/${orderId}`}>查看订单</Link> : null}
+                    {orderId ? (
+                      <ActionButton href={`/driver/orders/${orderId}`} tone="green">
+                        查看订单
+                      </ActionButton>
+                    ) : null}
                   </Space>
                 );
               },
@@ -121,11 +129,10 @@ export default function CapacityListPage() {
                 r.negotiations
                   .filter((n) => n.status === "PENDING")
                   .map((n) => (
-                    <div key={n.id}>
-                      {formatVnd(n.priceVnd)}{" "}
-                      <Button
-                        size="small"
-                        type="link"
+                    <div key={n.id} style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                      <span>{formatVnd(n.priceVnd)}</span>
+                      <ActionButton
+                        tone="green"
                         onClick={async () => {
                           const res = await apiFetch(`/api/driver/negotiations/${n.id}`, {
                             method: "POST",
@@ -136,11 +143,9 @@ export default function CapacityListPage() {
                         }}
                       >
                         接受
-                      </Button>
-                      <Button
-                        size="small"
-                        type="link"
-                        danger
+                      </ActionButton>
+                      <ActionButton
+                        tone="danger"
                         onClick={async () => {
                           const res = await apiFetch(`/api/driver/negotiations/${n.id}`, {
                             method: "POST",
@@ -151,7 +156,7 @@ export default function CapacityListPage() {
                         }}
                       >
                         拒绝
-                      </Button>
+                      </ActionButton>
                     </div>
                   )),
             },

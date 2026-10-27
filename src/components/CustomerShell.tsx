@@ -21,6 +21,7 @@ export function CustomerShell({ children, selected }: { children: React.ReactNod
     { key: "new", label: <Link href="/orders/new">{t("nav.new_order", "发布订单")}</Link> },
     { key: "capacity", label: <Link href="/orders/capacity">{t("nav.capacity_hall", "运力大厅")}</Link> },
     { key: "matches", label: <Link href="/orders/matches">{t("nav.matches", "我的匹配")}</Link> },
+    { key: "notes", label: <Link href="/orders/notifications">{t("nav.notes", "通知")}</Link> },
   ];
 
   const logout = async () => {

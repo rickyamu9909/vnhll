@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { Button, Card, DatePicker, Form, Input, Select, Space, Table, Tabs, Tag, Typography, message } from "antd";
 import dayjs from "dayjs";
+import { ActionButton } from "@/components/ActionButton";
 import { AdminShell } from "@/components/AdminShell";
 import { useI18n } from "@/components/I18nProvider";
 import { apiFetch, pathLabel, statusLabel } from "@/lib/client";
@@ -102,11 +102,9 @@ export default function AdminOrdersPage() {
         <Typography.Title level={4} style={{ margin: 0 }}>
           {t("nav.admin_orders", "订单管理")}
         </Typography.Title>
-        <Link href="/admin/orders/new">
-          <Button type="primary" size="small">
-            代客建单
-          </Button>
-        </Link>
+        <ActionButton href="/admin/orders/new" tone="primary">
+          代客建单
+        </ActionButton>
       </div>
       <Card size="small" style={{ marginBottom: 12 }}>
         <Form className="admin-filters" form={form} layout="inline" size="small" onFinish={load} style={{ rowGap: 8 }}>
@@ -201,22 +199,18 @@ export default function AdminOrdersPage() {
               fixed: "right",
               render: (_, r) => (
                 <Space size={6} wrap>
-                  <Link href={`/admin/orders/${r.id}`}>
-                    <Button type="primary" size="small">
-                      {t("order.detail", "详情")}
-                    </Button>
-                  </Link>
-                  <Link href={`/admin/orders/${r.id}/track`}>
-                    <Button size="small" style={{ background: "#0ea5e9", color: "#fff", borderColor: "#0ea5e9" }}>
-                      {t("track.view", "轨迹")}
-                    </Button>
-                  </Link>
-                  <Link href={`/admin/orders/new?from=${r.id}`}>
-                    <Button size="small">{t("order.copy", "复制")}</Button>
-                  </Link>
-                  <Link href={`/admin/orders/${r.id}/logs`}>
-                    <Button size="small">{t("order.logs", "日志")}</Button>
-                  </Link>
+                  <ActionButton href={`/admin/orders/${r.id}`} tone="primary">
+                    {t("order.detail", "详情")}
+                  </ActionButton>
+                  <ActionButton href={`/admin/orders/${r.id}/track`} tone="cyan">
+                    {t("track.view", "轨迹")}
+                  </ActionButton>
+                  <ActionButton href={`/admin/orders/new?from=${r.id}`} tone="orange">
+                    {t("order.copy", "复制")}
+                  </ActionButton>
+                  <ActionButton href={`/admin/orders/${r.id}/logs`} tone="default">
+                    {t("order.logs", "日志")}
+                  </ActionButton>
                 </Space>
               ),
             },

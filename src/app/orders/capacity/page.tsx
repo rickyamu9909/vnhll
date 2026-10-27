@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { Card, Space, Tag, Typography, message } from "antd";
+import { ActionButton } from "@/components/ActionButton";
 import { CustomerShell } from "@/components/CustomerShell";
 import { QueryFields } from "@/components/QueryFields";
 import { apiFetch, vehicleLabel } from "@/lib/client";
@@ -81,9 +81,11 @@ export default function CapacityHallPage() {
               {formatVnd(row.expectedPriceVnd)} VND · {row.loadTons} 吨 · {row.publisherName}
               {` · ${row.airportOk ? "可进机场" : "不可进机场"} / ${row.portOk ? "可进港口" : "不可进港口"}`}
             </div>
-            <Link href={`/orders/capacity/${row.id}`} style={{ display: "inline-block", marginTop: 8 }}>
-              发起匹配
-            </Link>
+            <div style={{ marginTop: 10 }}>
+              <ActionButton href={`/orders/capacity/${row.id}`} tone="primary">
+                发起匹配
+              </ActionButton>
+            </div>
           </Card>
         ))}
         {!shown.length ? <Card size="small">暂无可匹配运力。你有进行中订单时，这里会按顺路度排序。</Card> : null}

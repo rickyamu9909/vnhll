@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Button, Card, Descriptions, Space, Tag, Typography, message } from "antd";
+import { Card, Descriptions, Space, Tag, Typography, message } from "antd";
 import dayjs from "dayjs";
+import { ActionButton } from "@/components/ActionButton";
 import { DriverShell } from "@/components/DriverShell";
 import { BackButton } from "@/components/BackButton";
 import { apiFetch, vehicleLabel } from "@/lib/client";
@@ -67,16 +67,16 @@ export default function CapacityDetailPage() {
             </Descriptions.Item>
             <Descriptions.Item label="备注">{row.note || "-"}</Descriptions.Item>
           </Descriptions>
-          <Space style={{ marginTop: 16 }}>
+          <Space style={{ marginTop: 16 }} wrap>
             {row.status === "OPEN" ? (
-              <Link href={`/driver/capacity/${row.id}/edit`}>
-                <Button type="primary">编辑</Button>
-              </Link>
+              <ActionButton href={`/driver/capacity/${row.id}/edit`} tone="primary">
+                编辑
+              </ActionButton>
             ) : null}
             {row.orderId ? (
-              <Link href={`/driver/orders/${row.orderId}`}>
-                <Button>查看订单</Button>
-              </Link>
+              <ActionButton href={`/driver/orders/${row.orderId}`} tone="green">
+                查看订单
+              </ActionButton>
             ) : (
               <Tag>尚未生成订单</Tag>
             )}

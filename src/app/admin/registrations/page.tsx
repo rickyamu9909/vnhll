@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Button, Card, Image, Input, Modal, Space, Table, Tag, Typography, message } from "antd";
+import { Card, Image, Input, Modal, Space, Table, Tag, Typography, message } from "antd";
+import { ActionButton } from "@/components/ActionButton";
 import { AdminShell } from "@/components/AdminShell";
 import { apiFetch } from "@/lib/client";
 
@@ -72,18 +73,17 @@ export default function RegistrationsPage() {
             {
               title: "操作",
               render: (_, r) => (
-                <Space>
-                  <Button size="small" onClick={() => openDetail(r.id)}>
+                <Space wrap>
+                  <ActionButton tone="cyan" onClick={() => openDetail(r.id)}>
                     查看资料
-                  </Button>
+                  </ActionButton>
                   {r.status === "PENDING" ? (
                     <>
-                      <Button size="small" type="primary" onClick={() => act(r.id, "approve")}>
+                      <ActionButton tone="primary" onClick={() => act(r.id, "approve")}>
                         通过
-                      </Button>
-                      <Button
-                        size="small"
-                        danger
+                      </ActionButton>
+                      <ActionButton
+                        tone="danger"
                         onClick={() => {
                           let reason = "";
                           Modal.confirm({
@@ -94,7 +94,7 @@ export default function RegistrationsPage() {
                         }}
                       >
                         拒绝
-                      </Button>
+                      </ActionButton>
                     </>
                   ) : null}
                 </Space>

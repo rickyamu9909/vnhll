@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { Button, Card, Space, Tag, Typography, message } from "antd";
+import { Card, Space, Tag, Typography, message } from "antd";
 import dayjs from "dayjs";
+import { ActionButton } from "@/components/ActionButton";
 import { useI18n } from "@/components/I18nProvider";
 import { apiFetch } from "@/lib/client";
 import { formatVnd } from "@/lib/money";
@@ -77,21 +77,17 @@ export function MatchSuggestions() {
                 </div>
               </div>
               <Space wrap>
-                {row.orderId ? (
-                  <Link href={detailHref}>
-                    <Button size="small">订单详情</Button>
-                  </Link>
-                ) : null}
+                {row.orderId ? <ActionButton href={detailHref} tone="cyan">订单详情</ActionButton> : null}
                 {row.waiting ? (
                   <Typography.Text type="secondary">{t("suggest.wait", "已确认，等待对方")}</Typography.Text>
                 ) : (
                   <>
-                    <Button size="small" type="primary" onClick={() => act(row.id, true)}>
+                    <ActionButton tone="primary" onClick={() => act(row.id, true)}>
                       确认匹配
-                    </Button>
-                    <Button size="small" danger onClick={() => act(row.id, false)}>
+                    </ActionButton>
+                    <ActionButton tone="danger" onClick={() => act(row.id, false)}>
                       不匹配
-                    </Button>
+                    </ActionButton>
                   </>
                 )}
               </Space>

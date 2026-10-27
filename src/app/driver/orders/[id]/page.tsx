@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Alert, Button, Card, Descriptions, Form, InputNumber, Select, Space, Typography, message } from "antd";
 import { DriverShell } from "@/components/DriverShell";
@@ -42,6 +42,7 @@ export default function DriverOrderDetail() {
   const { t } = useI18n();
   const [order, setOrder] = useState<Detail | null>(null);
   const [subs, setSubs] = useState<Array<{ id: string; displayName?: string; username: string }>>([]);
+  const lastStageClick = useRef<{ key: string; at: number } | null>(null);
 
   const load = async () => {
     const res = await apiFetch<Detail>(`/api/driver/orders/${id}`);
@@ -61,10 +62,38 @@ export default function DriverOrderDetail() {
     const res = await apiFetch(`/api/driver/orders/${id}`, { method: "POST", body: JSON.stringify({ action, ...extra }) });
     if (!res.ok) message.error(res.message || "操作失败");
     else {
-      message.success(action === "bid" ? "报价成功，已进入我的订单·已报价" : action === "accept" ? "接单成功，已进入我的订单·待接货" : "已提交");
+      const tip =
+        action === "bid"
+          ? "报价成功，已进入我的订单·已报价"
+          : action === "accept"
+            ? "接单成功，已进入我的订单·待接货"
+            : action === "stage_cancel"
+              ? "已取消节点并记入日志"
+              : action === "stage"
+                ? "节点已锁定（双击可取消）"
+                : "已提交";
+      message.success(tip);
       if (action === "bid" || action === "accept") router.push("/driver/orders");
       else load();
     }
+  };
+
+  const onStageClick = (stageKey: string) => {
+    const now = Date.now();
+    const locked = order?.driverStage === stageKey;
+    if (locked) {
+      const prev = lastStageClick.current;
+      if (prev && prev.key === stageKey && now - prev.at < 500) {
+        lastStageClick.current = null;
+        void act("stage_cancel", { stage: stageKey });
+        return;
+      }
+      lastStageClick.current = { key: stageKey, at: now };
+      message.info("节点已锁定。请双击以取消该节点。");
+      return;
+    }
+    lastStageClick.current = { key: stageKey, at: now };
+    void act("stage", { stage: stageKey });
   };
 
   if (!order) {
@@ -130,16 +159,38 @@ export default function DriverOrderDetail() {
             </Form>
           ) : null}
           {["PENDING_EXECUTION", "IN_TRANSIT", "DELIVERED", "MATCHED"].includes(order.status) ? (
-            <Space wrap>
-              {DRIVER_STAGES.map((stage) => (
-                <Button key={stage.key} type={order.driverStage === stage.key ? "primary" : "default"} disabled={order.status === "DELIVERED" && stage.key !== "delivered"} onClick={() => act("stage", { stage: stage.key })}>
-                  {stage.label}
+            <div>
+              <Typography.Paragraph type="secondary" style={{ marginBottom: 8 }}>
+                单击选择并锁定节点；已锁定按钮置灰，双击可取消并写入「取消节点」日志。
+              </Typography.Paragraph>
+              <Space wrap>
+                {DRIVER_STAGES.map((stage) => {
+                  const locked = order.driverStage === stage.key;
+                  return (
+                    <Button
+                      key={stage.key}
+                      type={locked ? "default" : "primary"}
+                      ghost={!locked}
+                      disabled={order.status === "DELIVERED" && stage.key !== "delivered" && !locked}
+                      style={locked ? { background: "#cbd5e1", borderColor: "#94a3b8", color: "#475569" } : undefined}
+                      onClick={() => onStageClick(stage.key)}
+                    >
+                      {stage.label}
+                      {locked ? "（已锁定）" : ""}
+                    </Button>
+                  );
+                })}
+                <Button
+                  danger
+                  type={order.driverStage === DRIVER_ISSUE.key ? "default" : "primary"}
+                  style={order.driverStage === DRIVER_ISSUE.key ? { background: "#fecaca", borderColor: "#f87171" } : undefined}
+                  onClick={() => onStageClick(DRIVER_ISSUE.key)}
+                >
+                  {DRIVER_ISSUE.label}
+                  {order.driverStage === DRIVER_ISSUE.key ? "（已锁定）" : ""}
                 </Button>
-              ))}
-              <Button danger type={order.driverStage === DRIVER_ISSUE.key ? "primary" : "default"} onClick={() => act("stage", { stage: DRIVER_ISSUE.key })}>
-                {DRIVER_ISSUE.label}
-              </Button>
-            </Space>
+              </Space>
+            </div>
           ) : null}
         </Space>
         {subs.length > 0 && (order.status === "PENDING_EXECUTION" || order.status === "IN_TRANSIT") ? (

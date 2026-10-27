@@ -8,6 +8,7 @@ import { apiFetch } from "@/lib/client";
 type Note = { id: string; title: string; body: string; read: boolean; createdAt: string; link?: string | null };
 
 const NOTIFIED_KEY = "ants_notified_ids";
+const REG_TITLES = ["注册已通过", "注册未通过"];
 
 function loadNotified() {
   try {
@@ -18,24 +19,26 @@ function loadNotified() {
 }
 
 function saveNotified(set: Set<string>) {
-  const arr = [...set].slice(-200);
-  localStorage.setItem(NOTIFIED_KEY, JSON.stringify(arr));
+  localStorage.setItem(NOTIFIED_KEY, JSON.stringify([...set].slice(-200)));
 }
 
-function parseLink(note: Note) {
+function isRegNote(note: Note) {
+  return REG_TITLES.some((t) => note.title.includes(t));
+}
+
+function parseLink(note: Note, fallbackHref: string) {
   if (note.link) return note.link;
   const match = note.body.match(/ANTS-\d{8}-\d+/);
-  if (match && note.body.includes("订单")) {
-    if (typeof window !== "undefined" && window.location.pathname.startsWith("/driver")) {
-      return `/driver/orders?q=${encodeURIComponent(match[0])}`;
-    }
-    return `/orders?q=${encodeURIComponent(match[0])}`;
+  if (!match) return fallbackHref;
+  if (typeof window !== "undefined" && window.location.pathname.startsWith("/driver")) {
+    return `/driver/orders`;
   }
-  return null;
+  return `/orders`;
 }
 
-async function notifyOnce(note: Note) {
+async function notifyOnce(note: Note, fallbackHref: string) {
   if (typeof window === "undefined") return;
+  if (isRegNote(note)) return;
   const seen = loadNotified();
   if (seen.has(note.id)) return;
   seen.add(note.id);
@@ -53,8 +56,7 @@ async function notifyOnce(note: Note) {
     const n = new Notification(note.title, { body: note.body, tag: note.id });
     n.onclick = () => {
       window.focus();
-      const href = parseLink(note);
-      if (href) window.location.href = href;
+      window.location.href = parseLink(note, fallbackHref);
       n.close();
     };
   } catch {
@@ -78,21 +80,27 @@ export function PendingBanner({
     if (!res.ok) return;
     const rows = res.data || [];
     const fresh = rows.filter((row) => !row.read);
-    setUnread(fresh.length);
-    setLatest(fresh[0] || null);
-    if (fresh[0]) void notifyOnce(fresh[0]);
+    // 已登录用户不再提示「注册已通过」——自动标已读
+    const regIds = fresh.filter(isRegNote).map((n) => n.id);
+    if (regIds.length) {
+      await apiFetch(api, { method: "POST", body: JSON.stringify({ ids: regIds }) });
+    }
+    const actionable = fresh.filter((n) => !isRegNote(n));
+    setUnread(actionable.length);
+    setLatest(actionable[0] || null);
+    if (actionable[0]) void notifyOnce(actionable[0], fallbackHref);
   };
 
   useEffect(() => {
     load();
-    const timer = setInterval(load, 90000);
+    const timer = setInterval(load, 120000);
     return () => clearInterval(timer);
-  }, [api]);
+  }, [api, fallbackHref]);
 
   const markAndOpen = async () => {
     if (!latest) return;
     await apiFetch(api, { method: "POST", body: JSON.stringify({ ids: [latest.id] }) });
-    const href = parseLink(latest) || fallbackHref;
+    const href = parseLink(latest, fallbackHref);
     setLatest(null);
     setUnread((n) => Math.max(0, n - 1));
     router.push(href);
@@ -121,7 +129,7 @@ export function PendingBanner({
       }
       description={latest.body}
       action={
-        <Button type="link" size="small" onClick={markAndOpen}>
+        <Button type="primary" size="small" onClick={markAndOpen}>
           查看
         </Button>
       }

@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { Button, Card, Collapse, Modal, Space, Table, Tabs, Tooltip, Typography, message } from "antd";
 import dayjs from "dayjs";
+import { ActionButton } from "@/components/ActionButton";
 import { CustomerShell } from "@/components/CustomerShell";
 import { MatchSuggestions } from "@/components/MatchSuggestions";
 import { orderColumns } from "@/components/OrderListBits";
@@ -89,9 +89,9 @@ export default function OrdersPage() {
         <Typography.Title level={3} style={{ margin: 0 }}>
           {t("nav.orders", "我的订单")}
         </Typography.Title>
-        <Link href="/orders/new" prefetch>
-          <Button type="primary">{t("nav.new_order", "新建订单")}</Button>
-        </Link>
+        <ActionButton href="/orders/new" tone="primary">
+          {t("nav.new_order", "新建订单")}
+        </ActionButton>
       </div>
       <MatchSuggestions />
       <Space direction="vertical" style={{ width: "100%" }} size={12} className="orders-mobile-cards">
@@ -111,19 +111,17 @@ export default function OrdersPage() {
             </div>
             {nextAction(row) ? <div style={{ marginTop: 6, color: "#b45309", fontSize: 13 }}>{nextAction(row)}</div> : null}
             <Space wrap style={{ marginTop: 10 }}>
-              <Link href={`/orders/${row.id}`}>
-                <Button size="small" type="primary">
-                  详情
-                </Button>
-              </Link>
+              <ActionButton href={`/orders/${row.id}`} tone="primary">
+                详情
+              </ActionButton>
               {["FAILED", "REJECTED"].includes(row.status) ? (
-                <Link href={`/orders/new?from=${row.id}`}>
-                  <Button size="small">改价重发</Button>
-                </Link>
+                <ActionButton href={`/orders/new?from=${row.id}`} tone="orange">
+                  改价重发
+                </ActionButton>
               ) : null}
-              <Link href={`/orders/${row.id}/track`}>
-                <Button size="small">轨迹</Button>
-              </Link>
+              <ActionButton href={`/orders/${row.id}/track`} tone="cyan">
+                轨迹
+              </ActionButton>
             </Space>
           </Card>
         ))}
@@ -161,41 +159,33 @@ export default function OrdersPage() {
               const canEdit = EDITABLE.has(r.status);
               const canCancel = CANCELABLE.has(r.status);
               return (
-                <Space size={4} wrap>
-                  <Link href={`/orders/${r.id}`} prefetch>
-                    <Button type="link" size="small">
-                      详情
-                    </Button>
-                  </Link>
-                  <Link href={`/orders/${r.id}/track`}>
-                    <Button type="link" size="small">
-                      轨迹
-                    </Button>
-                  </Link>
+                <Space size={6} wrap>
+                  <ActionButton href={`/orders/${r.id}`} tone="primary">
+                    详情
+                  </ActionButton>
+                  <ActionButton href={`/orders/${r.id}/track`} tone="cyan">
+                    轨迹
+                  </ActionButton>
                   {["FAILED", "REJECTED"].includes(r.status) ? (
-                    <Link href={`/orders/new?from=${r.id}`}>
-                      <Button type="link" size="small">
-                        改价重发
-                      </Button>
-                    </Link>
+                    <ActionButton href={`/orders/new?from=${r.id}`} tone="orange">
+                      改价重发
+                    </ActionButton>
                   ) : null}
                   {canEdit ? (
-                    <Link href={`/orders/${r.id}/edit`} prefetch>
-                      <Button type="link" size="small">
-                        修改
-                      </Button>
-                    </Link>
+                    <ActionButton href={`/orders/${r.id}/edit`} tone="default">
+                      修改
+                    </ActionButton>
                   ) : (
                     <Tooltip title="当前状态不可修改">
-                      <Button type="link" size="small" disabled>
+                      <Button size="small" disabled>
                         修改
                       </Button>
                     </Tooltip>
                   )}
                   {canCancel ? (
-                    <Button type="link" danger size="small" onClick={() => cancelOrder(r.id)}>
+                    <ActionButton tone="danger" onClick={() => cancelOrder(r.id)}>
                       取消
-                    </Button>
+                    </ActionButton>
                   ) : null}
                 </Space>
               );
