@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { Alert, Button, Card, Descriptions, Form, InputNumber, Select, Space, Typography, message } from "antd";
 import { DriverShell } from "@/components/DriverShell";
 import { BackButton } from "@/components/BackButton";
 import { apiFetch, pathLabel, statusLabel } from "@/lib/client";
 import { useI18n } from "@/components/I18nProvider";
 import { formatVnd } from "@/lib/money";
+import { DriverNavMap } from "@/components/DriverNavMap";
 import { DRIVER_ISSUE, DRIVER_STAGES, stageLabel } from "@/lib/stages";
 
 type Detail = {
@@ -21,6 +22,10 @@ type Detail = {
   deliveryAddress: string;
   deliveryContact: string;
   deliveryPhone: string;
+  originLat?: number | null;
+  originLng?: number | null;
+  destLat?: number | null;
+  destLng?: number | null;
   targetPriceVnd?: string | null;
   dealPriceVnd?: string | null;
   platformFeeVnd?: string | null;
@@ -33,6 +38,7 @@ type Detail = {
 
 export default function DriverOrderDetail() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const { t } = useI18n();
   const [order, setOrder] = useState<Detail | null>(null);
   const [subs, setSubs] = useState<Array<{ id: string; displayName?: string; username: string }>>([]);
@@ -55,8 +61,9 @@ export default function DriverOrderDetail() {
     const res = await apiFetch(`/api/driver/orders/${id}`, { method: "POST", body: JSON.stringify({ action, ...extra }) });
     if (!res.ok) message.error(res.message || "操作失败");
     else {
-      message.success("已提交");
-      load();
+      message.success(action === "bid" ? "报价成功，已进入我的订单·已报价" : action === "accept" ? "接单成功，已进入我的订单·待接货" : "已提交");
+      if (action === "bid" || action === "accept") router.push("/driver/orders");
+      else load();
     }
   };
 
@@ -71,11 +78,14 @@ export default function DriverOrderDetail() {
   return (
     <DriverShell>
       <Space style={{ marginBottom: 16 }}>
-        <BackButton href="/driver" />
+        <BackButton href={order.myBidPriceVnd ? "/driver/orders" : "/driver"} />
         <Typography.Title level={3} style={{ margin: 0 }}>
           {order.orderNo}
         </Typography.Title>
       </Space>
+      {order.myBidPriceVnd ? (
+        <Alert type="success" showIcon style={{ marginBottom: 12 }} message="本单已进入「我的订单 · 已报价」，不会再出现在货源大厅。" />
+      ) : null}
       <Card>
         <Descriptions column={1} bordered size="small">
           <Descriptions.Item label="状态">
@@ -101,19 +111,15 @@ export default function DriverOrderDetail() {
         {order.myBidPriceVnd ? (
           <Alert style={{ marginTop: 16 }} type="info" showIcon message={`已报价 ${formatVnd(order.myBidPriceVnd)} VND。再次进入会看到这条报价，可以直接修改，不必重复提交同一价格。`} />
         ) : null}
+        <DriverNavMap title="提货点" destAddress={order.pickupAddress} destLat={order.originLat} destLng={order.originLng} />
+        <DriverNavMap title="目的地" destAddress={order.deliveryAddress} destLat={order.destLat} destLng={order.destLng} />
         <Space style={{ marginTop: 16 }} wrap>
-          <Button href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.pickupAddress)}`} target="_blank">
-            导航到提货点
-          </Button>
-          <Button href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.deliveryAddress)}`} target="_blank">
-            导航到目的地
-          </Button>
           {order.status === "OPEN" && order.matchPath === "A" && order.targetPriceVnd ? (
             <Button type="primary" onClick={() => act("accept")}>
               接单
             </Button>
           ) : null}
-          {order.status === "OPEN" && order.matchPath === "B" ? (
+          {(order.status === "OPEN" || order.status === "BIDDING") && order.matchPath === "B" ? (
             <Form key={order.myBidPriceVnd || "new"} layout="inline" initialValues={{ priceVnd: order.myBidPriceVnd ? Number(order.myBidPriceVnd) : undefined }} onFinish={(v) => act("bid", { priceVnd: v.priceVnd })}>
               <Form.Item name="priceVnd" rules={[{ required: true }]}>
                 <InputNumber min={1} placeholder="报价 VND" />

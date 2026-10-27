@@ -27,7 +27,7 @@ const STATUS_ZH: Record<string, string> = {
   CANCELLED: "已取消",
   REJECTED: "已拒绝",
   PENDING_REVIEW: "待审核",
-  BIDDING: "竞价中",
+  BIDDING: "已有报价",
   MATCHED: "已接单",
 };
 

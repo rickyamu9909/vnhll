@@ -318,7 +318,7 @@ export function OrderFormFields({ addressUserId, addressMode = "self" }: { addre
           <Form.Item
             name="targetPriceVnd"
             label={t("form.price", "目标价")}
-            extra="填价=出价接单；不填=询价报价。平台不提供参考价。"
+            extra="填价=出价接单；不填=询价报价。"
           >
             <InputNumber min={0} style={{ width: "100%" }} placeholder={t("form.inquiry", "不填则询价")} />
           </Form.Item>

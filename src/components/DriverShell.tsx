@@ -22,17 +22,14 @@ export function DriverShell({ children }: { children: React.ReactNode }) {
     ? "team"
     : pathname.startsWith("/driver/capacity")
       ? "capacity"
-      : pathname.startsWith("/driver/tasks")
-        ? "tasks"
-        : pathname.startsWith("/driver/notifications")
-          ? "notes"
-          : pathname.startsWith("/driver/orders")
-            ? "mine"
-            : "hall";
+      : pathname.startsWith("/driver/notifications")
+        ? "notes"
+        : pathname.startsWith("/driver/orders") || pathname.startsWith("/driver/tasks")
+          ? "mine"
+          : "hall";
   const items = [
     { key: "hall", label: <Link href="/driver">{t("driver.hall", "订单中心")}</Link> },
     { key: "mine", label: <Link href="/driver/orders">{t("driver.mine", "我的订单")}</Link> },
-    { key: "tasks", label: <Link href="/driver/tasks">{t("driver.tasks", "我的任务")}</Link> },
     { key: "capacity", label: <Link href="/driver/capacity">{t("driver.capacity", "运力")}</Link> },
     { key: "team", label: <Link href="/driver/team">{t("driver.team", "司机管理")}</Link> },
     { key: "notes", label: <Link href="/driver/notifications">{t("driver.notes", "通知")}</Link> },
@@ -62,7 +59,7 @@ export function DriverShell({ children }: { children: React.ReactNode }) {
       </Drawer>
       <Content className="page-content" style={{ maxWidth: 1100, width: "100%", margin: "24px auto", padding: "0 16px" }}>
         <TrackReporter />
-        <PendingBanner />
+        <PendingBanner api="/api/driver/notifications" fallbackHref="/driver/notifications" />
         {children}
       </Content>
     </Layout>

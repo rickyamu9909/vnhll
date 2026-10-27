@@ -7,6 +7,7 @@ import { MenuOutlined } from "@ant-design/icons";
 import { Button, Drawer, Layout, Menu, Space, Typography } from "antd";
 import { LocaleSwitch } from "@/components/LocaleSwitch";
 import { useI18n } from "@/components/I18nProvider";
+import { PendingBanner } from "@/components/PendingBanner";
 import { apiFetch } from "@/lib/client";
 
 const { Header, Content } = Layout;
@@ -43,7 +44,10 @@ export function CustomerShell({ children, selected }: { children: React.ReactNod
       <Drawer title={t("nav.menu", "菜单")} placement="left" open={open} onClose={() => setOpen(false)} width={280}>
         <Menu mode="inline" selectedKeys={[selected]} items={items} onClick={() => setOpen(false)} />
       </Drawer>
-      <Content className="page-content" style={{ maxWidth: 1100, width: "100%", margin: "24px auto", padding: "0 16px" }}>{children}</Content>
+      <Content className="page-content" style={{ maxWidth: 1100, width: "100%", margin: "24px auto", padding: "0 16px" }}>
+        <PendingBanner api="/api/notifications" fallbackHref="/orders" />
+        {children}
+      </Content>
     </Layout>
   );
 }

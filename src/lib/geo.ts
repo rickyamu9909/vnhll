@@ -128,9 +128,10 @@ export async function routeEstimate(origin: Coord, dest: Coord): Promise<RouteEs
   const key = `${origin.lat.toFixed(5)},${origin.lng.toFixed(5)}>${dest.lat.toFixed(5)},${dest.lng.toFixed(5)}`;
   if (routeCache.has(key)) return routeCache.get(key)!;
   const straightKm = haversineKm(origin, dest);
+  // 越南城际/市区拖车平均更慢，直线降级按约 28km/h，不用中国高速假设
   const fallback: RouteEstimate = {
     distanceKm: Math.round(straightKm * 100) / 100,
-    durationMin: Math.max(1, Math.round((straightKm / 35) * 60)),
+    durationMin: Math.max(1, Math.round((straightKm / 28) * 60)),
     source: "straight",
   };
   const ctrl = new AbortController();
@@ -148,9 +149,11 @@ export async function routeEstimate(origin: Coord, dest: Coord): Promise<RouteEs
       routeCache.set(key, fallback);
       return fallback;
     }
+    // OSRM 默认偏小客车；越南货车/拥堵按 1.35 倍修正
+    const rawMin = Math.max(1, Math.round((route.duration || 0) / 60));
     const estimate: RouteEstimate = {
       distanceKm: Math.round((route.distance / 1000) * 100) / 100,
-      durationMin: Math.max(1, Math.round((route.duration || 0) / 60)),
+      durationMin: Math.max(1, Math.round(rawMin * 1.35)),
       source: "osrm",
     };
     routeCache.set(key, estimate);

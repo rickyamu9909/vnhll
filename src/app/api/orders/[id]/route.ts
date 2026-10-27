@@ -18,6 +18,8 @@ import {
 type Ctx = { params: { id: string } };
 
 const SHOW_BIDS: OrderStatus[] = [
+  OrderStatus.OPEN,
+  OrderStatus.BIDDING,
   OrderStatus.PENDING_CONFIRM,
   OrderStatus.PENDING_AUDIT,
   OrderStatus.PENDING_EXECUTION,

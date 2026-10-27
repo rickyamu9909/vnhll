@@ -282,7 +282,7 @@ let sweepAt = 0;
 export function sweepDeadlines(force = false) {
   const nowMs = Date.now();
   if (sweepTask) return sweepTask;
-  if (!force && nowMs - sweepAt < 20000) return Promise.resolve();
+  if (!force && nowMs - sweepAt < 60000) return Promise.resolve();
   sweepAt = nowMs;
   sweepTask = runSweep().finally(() => {
     sweepTask = null;
@@ -295,7 +295,7 @@ async function runSweep() {
   const now = new Date();
   const open = await prisma.order.findMany({
     where: {
-      status: OrderStatus.OPEN,
+      status: { in: [OrderStatus.OPEN, OrderStatus.BIDDING] },
       matchPath: { in: [MatchPath.A, MatchPath.B] },
       OR: [
         { waitDeadline: { lte: now } },
@@ -455,12 +455,34 @@ export async function placeBid(orderId: string, userId: string, priceVnd: bigint
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user || (user.role !== "CARRIER_MAIN" && user.role !== "CARRIER_SUB")) throw new Error("无权报价");
   const order = await prisma.order.findUnique({ where: { id: orderId } });
-  if (!order || order.status !== OrderStatus.OPEN || order.matchPath !== MatchPath.B) throw new Error("当前订单不可报价");
+  if (!order || order.matchPath !== MatchPath.B) throw new Error("当前订单不可报价");
+  if (order.status !== OrderStatus.OPEN && order.status !== OrderStatus.BIDDING) throw new Error("当前订单不可报价");
+  const existingCount = await prisma.carrierBid.count({ where: { orderId, publishRound: order.publishRound } });
   const bid = await prisma.carrierBid.upsert({
     where: { orderId_publishRound_bidderUserId: { orderId, publishRound: order.publishRound, bidderUserId: userId } },
     create: { orderId, publishRound: order.publishRound, bidderUserId: userId, priceVnd },
     update: { priceVnd },
   });
+  const cfg = await getConfig();
+  if (cfg.confirmTimerStart === "AFTER_FIRST_BID" && existingCount === 0) {
+    await prisma.order.update({
+      where: { id: orderId },
+      data: {
+        status: OrderStatus.PENDING_CONFIRM,
+        confirmDeadline: addMinutes(new Date(), cfg.confirmMinutes),
+        statusLogs: { create: { fromStatus: order.status, toStatus: OrderStatus.PENDING_CONFIRM, note: "首笔报价到达，进入待确认", operatorId: userId } },
+      },
+    });
+  } else if (order.status === OrderStatus.OPEN) {
+    await prisma.order.update({
+      where: { id: orderId },
+      data: {
+        status: OrderStatus.BIDDING,
+        statusLogs: { create: { fromStatus: OrderStatus.OPEN, toStatus: OrderStatus.BIDDING, note: "已有司机报价", operatorId: userId } },
+      },
+    });
+  }
+  await notify(order.customerId, "收到司机报价", `订单 ${order.orderNo} 有新报价 ${priceVnd.toString()} VND，请到订单详情确认。`);
   await logOp(userId, "ORDER_BID", "order", orderId, priceVnd.toString());
   return bid;
 }
@@ -468,7 +490,10 @@ export async function placeBid(orderId: string, userId: string, priceVnd: bigint
 export async function confirmBid(orderId: string, customerId: string, bidId: string) {
   await sweepDeadlines();
   const order = await prisma.order.findFirst({ where: { id: orderId, customerId } });
-  if (!order || order.status !== OrderStatus.PENDING_CONFIRM) throw new Error("当前不在确认窗口");
+  if (!order || (order.status !== OrderStatus.PENDING_CONFIRM && order.status !== OrderStatus.BIDDING && order.status !== OrderStatus.OPEN)) {
+    throw new Error("当前不在确认窗口");
+  }
+  if (order.matchPath !== MatchPath.B) throw new Error("仅询价订单可确认报价");
   const bid = await prisma.carrierBid.findFirst({ where: { id: bidId, orderId, publishRound: order.publishRound } });
   if (!bid) throw new Error("报价不存在");
   const cfg = await getConfig();
@@ -936,7 +961,7 @@ async function persistSuggestions(
             score: scored.score,
             reason: scored.reason,
             status: "PENDING",
-            deadline,
+            deadline: existing.deadline && existing.deadline > new Date() ? existing.deadline : deadline,
           },
         });
       }
@@ -954,8 +979,9 @@ async function persistSuggestions(
         deadline,
       },
     });
-    await notify(order.customerId, "发现顺路运力", `订单 ${order.orderNo}：${scored.reason}。请在 ${cfg.negotiateMinutes} 分钟内确认。`);
-    await notify(cap.publisherUserId, "发现顺路货源", `客户订单 ${order.orderNo}：${scored.reason}。请在 ${cfg.negotiateMinutes} 分钟内确认。`);
+    // 仅首次创建时通知一次，避免轮询/重算反复弹窗
+    await notify(order.customerId, "发现顺路运力", `订单 ${order.orderNo}：${scored.reason}。请在 ${cfg.negotiateMinutes} 分钟内到「我的匹配/订单」确认。`);
+    await notify(cap.publisherUserId, "发现顺路货源", `客户订单 ${order.orderNo}：${scored.reason}。请在 ${cfg.negotiateMinutes} 分钟内到订单详情确认。`);
   }
 }
 
@@ -1069,6 +1095,7 @@ export async function listSuggestions(userId: string) {
         reason: row.reason,
         deadline: row.deadline,
         orderNo: order.orderNo,
+        orderId: order.id,
         pickup: order.originAddress || order.pickupAddress,
         delivery: order.destAddress || order.deliveryAddress,
         location: cap.location,

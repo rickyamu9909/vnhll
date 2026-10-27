@@ -276,7 +276,7 @@ function OrderDetailInner() {
               {
                 title: "操作",
                 render: (_, row) =>
-                  order.status === "PENDING_CONFIRM" ? (
+                  ["PENDING_CONFIRM", "BIDDING", "OPEN"].includes(order.status) ? (
                     <Button
                       type="link"
                       onClick={async () => {

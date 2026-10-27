@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { MatchPath, OrderStatus } from "@prisma/client";
+import { MatchPath, OrderStatus, Prisma } from "@prisma/client";
 import { getSession, requireCarrier } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { jsonFail, jsonOk } from "@/lib/api";
@@ -31,18 +31,31 @@ export async function GET(req: NextRequest) {
   const scope = req.nextUrl.searchParams.get("scope");
   const dbUser = await prisma.user.findUnique({ where: { id: user!.id } });
   const executing = [OrderStatus.PENDING_EXECUTION, OrderStatus.IN_TRANSIT, OrderStatus.MATCHED, OrderStatus.DELIVERED];
-  const where =
-    scope === "tasks"
-      ? {
-          status: { in: executing },
-          OR: [{ assignedToUserId: user!.id }, { assignedToUserId: null, acceptedByUserId: user!.id }],
-        }
-      : scope === "mine"
-        ? { OR: [{ acceptedByUserId: user!.id }, { assignedToUserId: user!.id }] }
-        : {
-            status: { in: [OrderStatus.OPEN, OrderStatus.PENDING_CONFIRM] },
-            matchPath: { in: [MatchPath.A, MatchPath.B] },
-          };
+
+  let where: Prisma.OrderWhereInput;
+  if (scope === "tasks") {
+    where = {
+      status: { in: executing },
+      OR: [{ assignedToUserId: user!.id }, { assignedToUserId: null, acceptedByUserId: user!.id }],
+    };
+  } else if (scope === "mine") {
+    // 接单/被分配 + 自己报过价的单，都进「我的订单」
+    where = {
+      OR: [
+        { acceptedByUserId: user!.id },
+        { assignedToUserId: user!.id },
+        { carrierBids: { some: { bidderUserId: user!.id } } },
+      ],
+    };
+  } else {
+    // 货源大厅：未成交；自己已报价的询价单不再出现在大厅
+    where = {
+      status: { in: [OrderStatus.OPEN, OrderStatus.BIDDING] },
+      matchPath: { in: [MatchPath.A, MatchPath.B] },
+      NOT: { carrierBids: { some: { bidderUserId: user!.id } } },
+    };
+  }
+
   const [orders, caps] = await Promise.all([
     prisma.order.findMany({
       where,
@@ -50,11 +63,11 @@ export async function GET(req: NextRequest) {
         carrierBids: dbUser?.role === "CARRIER_SUB" ? { where: { bidderUserId: user!.id } } : true,
       },
       orderBy: { createdAt: "desc" },
+      take: scope === "mine" || scope === "tasks" ? 200 : 80,
     }),
-    !scope
-      ? prisma.capacity.findMany({ where: { publisherUserId: user!.id, status: "OPEN" } })
-      : Promise.resolve([]),
+    !scope ? prisma.capacity.findMany({ where: { publisherUserId: user!.id, status: "OPEN" }, take: 20 }) : Promise.resolve([]),
   ]);
+
   return jsonOk(
     orders.map((o) => {
       const view = serializeMoney(o as unknown as Record<string, unknown>);

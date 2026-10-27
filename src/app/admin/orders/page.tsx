@@ -197,14 +197,26 @@ export default function AdminOrdersPage() {
             { title: t("form.eta", "预计送达"), dataIndex: "etaAt", width: 130, render: (v) => (v ? dayjs(v).format("MM-DD HH:mm") : "-") },
             {
               title: t("order.op", "操作"),
-              width: 220,
+              width: 300,
               fixed: "right",
               render: (_, r) => (
-                <Space size={4}>
-                  <Link href={`/admin/orders/${r.id}`}>{t("order.detail", "详情")}</Link>
-                  <Link href={`/admin/orders/${r.id}/track`}>{t("track.view", "查看轨迹")}</Link>
-                  <Link href={`/admin/orders/new?from=${r.id}`}>{t("order.copy", "复制")}</Link>
-                  <Link href={`/admin/orders/${r.id}/logs`}>{t("order.logs", "日志")}</Link>
+                <Space size={6} wrap>
+                  <Link href={`/admin/orders/${r.id}`}>
+                    <Button type="primary" size="small">
+                      {t("order.detail", "详情")}
+                    </Button>
+                  </Link>
+                  <Link href={`/admin/orders/${r.id}/track`}>
+                    <Button size="small" style={{ background: "#0ea5e9", color: "#fff", borderColor: "#0ea5e9" }}>
+                      {t("track.view", "轨迹")}
+                    </Button>
+                  </Link>
+                  <Link href={`/admin/orders/new?from=${r.id}`}>
+                    <Button size="small">{t("order.copy", "复制")}</Button>
+                  </Link>
+                  <Link href={`/admin/orders/${r.id}/logs`}>
+                    <Button size="small">{t("order.logs", "日志")}</Button>
+                  </Link>
                 </Space>
               ),
             },
