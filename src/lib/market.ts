@@ -608,8 +608,6 @@ export async function setDriverStage(orderId: string, userId: string, stageKey: 
   } else if (stageEnablesTracking(stageKey)) {
     // 前往提货 / 已提货 / 运输中：开启并由当前操作司机持续上报
     trackShareOn = true;
-  } else if (stageKey === "wait_pickup") {
-    trackShareOn = false;
   }
   // 车辆异常：不改轨迹开关
   const data: Prisma.OrderUpdateInput = {

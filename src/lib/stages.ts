@@ -1,5 +1,5 @@
+/** 司机履约节点（已去掉「待接货」按钮，订单状态本身即为待接货） */
 export const DRIVER_STAGES = [
-  { key: "wait_pickup", label: "待接货", status: "PENDING_EXECUTION" },
   { key: "going_pickup", label: "前往提货", status: "PENDING_EXECUTION" },
   { key: "picked", label: "已提货", status: "IN_TRANSIT" },
   { key: "transit", label: "运输中", status: "IN_TRANSIT" },
@@ -8,7 +8,12 @@ export const DRIVER_STAGES = [
 
 export const DRIVER_ISSUE = { key: "issue", label: "车辆异常" };
 
+const LEGACY_STAGE_LABELS: Record<string, string> = {
+  wait_pickup: "待接货",
+};
+
 export function stageLabel(key?: string | null) {
+  if (!key) return "";
   if (key === DRIVER_ISSUE.key) return DRIVER_ISSUE.label;
-  return DRIVER_STAGES.find((stage) => stage.key === key)?.label || "";
+  return DRIVER_STAGES.find((stage) => stage.key === key)?.label || LEGACY_STAGE_LABELS[key] || "";
 }

@@ -24,7 +24,11 @@ export type RouteEstimate = {
   distanceKm: number;
   durationMin: number;
   source: "osrm" | "straight";
+  /** [lat, lng][] 道路导航折线；直线降级时为起终点两点 */
+  coordinates?: Array<[number, number]>;
 };
+
+const polylineCache = new Map<string, Array<[number, number]> | null>();
 
 export function haversineKm(a: Coord, b: Coord) {
   const radius = 6371;
@@ -122,6 +126,38 @@ export async function geocode(query: string): Promise<Coord | null> {
   const coord = hits[0] ? { lat: hits[0].lat, lng: hits[0].lng } : null;
   geocodeCache.set(text, coord);
   return coord;
+}
+
+/** 服务端向 OSRM 拉完整道路折线（供轨迹地图画真导航线） */
+export async function routePolyline(origin: Coord, dest: Coord): Promise<Array<[number, number]> | null> {
+  const key = `${origin.lat.toFixed(5)},${origin.lng.toFixed(5)}>${dest.lat.toFixed(5)},${dest.lng.toFixed(5)}`;
+  if (polylineCache.has(key)) return polylineCache.get(key) || null;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 8000);
+  try {
+    const url = `https://router.project-osrm.org/route/v1/driving/${origin.lng},${origin.lat};${dest.lng},${dest.lat}?overview=full&geometries=geojson`;
+    const res = await fetch(url, { signal: ctrl.signal, headers: { Accept: "application/json" } });
+    if (!res.ok) {
+      polylineCache.set(key, null);
+      return null;
+    }
+    const data = (await res.json()) as {
+      routes?: Array<{ geometry?: { coordinates?: Array<[number, number]> } }>;
+    };
+    const raw = data.routes?.[0]?.geometry?.coordinates;
+    if (!raw?.length) {
+      polylineCache.set(key, null);
+      return null;
+    }
+    const line = raw.map(([lng, lat]) => [lat, lng] as [number, number]);
+    polylineCache.set(key, line);
+    return line;
+  } catch {
+    polylineCache.set(key, null);
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export async function routeEstimate(origin: Coord, dest: Coord): Promise<RouteEstimate> {

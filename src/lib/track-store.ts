@@ -1,15 +1,39 @@
 import { OrderStatus } from "@prisma/client";
 import { prisma } from "./prisma";
-import { cleanRecordedAt, cleanSpeed, cleanStatusText, shareOnForStatus, trackFreshness, validCoord } from "./track";
+import { routePolyline } from "./geo";
+import { TRACK_START_STAGES, cleanRecordedAt, cleanSpeed, cleanStatusText, shareOnForStatus, trackFreshness, validCoord } from "./track";
 
 const OPEN_STATUSES: OrderStatus[] = [OrderStatus.PENDING_EXECUTION, OrderStatus.IN_TRANSIT, OrderStatus.MATCHED];
+const ACTIVE_STAGES = [...TRACK_START_STAGES];
 
-/** 仅返回已点「前往提货」开启上报（trackShareOn）且由当前司机执行的订单 */
+/** 关掉历史误开的上报：未点前往提货 / 已结束状态 */
+export async function cleanupStaleTrackShare(userId: string) {
+  await prisma.order.updateMany({
+    where: {
+      trackShareOn: true,
+      OR: [{ assignedToUserId: userId }, { assignedToUserId: null, acceptedByUserId: userId }],
+      AND: [
+        {
+          OR: [
+            { status: { notIn: OPEN_STATUSES } },
+            { driverStage: null },
+            { driverStage: { notIn: [...ACTIVE_STAGES, "issue"] } },
+          ],
+        },
+      ],
+    },
+    data: { trackShareOn: false },
+  });
+}
+
+/** 仅「前往提货」及之后履约节点，且 trackShareOn，才出现在顶部横幅 */
 export async function activeTrackOrders(userId: string) {
+  await cleanupStaleTrackShare(userId);
   return prisma.order.findMany({
     where: {
       trackShareOn: true,
       status: { in: OPEN_STATUSES },
+      driverStage: { in: [...ACTIVE_STAGES, "issue"] },
       OR: [{ assignedToUserId: userId }, { assignedToUserId: null, acceptedByUserId: userId }],
     },
     select: { id: true, orderNo: true, status: true, driverStage: true },
@@ -34,11 +58,11 @@ export async function saveTrackReports(
     }
     const order = await prisma.order.findUnique({
       where: { id: orderId },
-      select: { id: true, status: true, trackShareOn: true, acceptedByUserId: true, assignedToUserId: true },
+      select: { id: true, status: true, trackShareOn: true, driverStage: true, acceptedByUserId: true, assignedToUserId: true },
     });
     const owner = order?.assignedToUserId || order?.acceptedByUserId;
-    // 不校验速度：静止/无速度也可落点；必须已开启 trackShareOn（前往提货）
-    if (!order || owner !== userId || !order.trackShareOn || !shareOnForStatus(order.status)) {
+    const stageOk = !!order?.driverStage && ([...ACTIVE_STAGES, "issue"] as string[]).includes(order.driverStage);
+    if (!order || owner !== userId || !order.trackShareOn || !shareOnForStatus(order.status) || !stageOk) {
       rejected.push(orderId);
       continue;
     }
@@ -88,12 +112,15 @@ export async function readOrderTrack(orderId: string) {
   const points = await prisma.orderTrackPoint.findMany({
     where: { orderId },
     orderBy: { recordedAt: "desc" },
-    take: 2000,
+    take: 500,
     select: { lat: true, lng: true, speedKmh: true, statusText: true, recordedAt: true },
   });
   points.reverse();
   const latest = points[points.length - 1] || null;
   const shareOn = !!order.trackShareOn && shareOnForStatus(order.status);
+  const origin = order.originLat != null && order.originLng != null ? { lat: order.originLat, lng: order.originLng } : null;
+  const dest = order.destLat != null && order.destLng != null ? { lat: order.destLat, lng: order.destLng } : null;
+  const navPolyline = origin && dest ? await routePolyline(origin, dest) : null;
   return {
     orderNo: order.orderNo,
     status: order.status,
@@ -104,8 +131,10 @@ export async function readOrderTrack(orderId: string) {
     deliveryAddress: order.deliveryAddress,
     originLabel: order.originCity || order.pickupAddress,
     destLabel: order.destCity || order.deliveryAddress,
-    origin: order.originLat != null && order.originLng != null ? { lat: order.originLat, lng: order.originLng } : null,
-    dest: order.destLat != null && order.destLng != null ? { lat: order.destLat, lng: order.destLng } : null,
+    origin,
+    dest,
+    navPolyline,
+    navSource: navPolyline?.length ? "osrm" : null,
     latest: latest
       ? { ...latest, recordedAt: latest.recordedAt.toISOString(), speedKmh: latest.speedKmh }
       : null,

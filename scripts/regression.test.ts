@@ -271,6 +271,7 @@ describe("司机轨迹", () => {
     assert.equal(stageEnablesTracking("going_pickup"), true);
     assert.equal(stageEnablesTracking("picked"), true);
     assert.equal(stageEnablesTracking("wait_pickup"), false);
+    assert.equal(stageEnablesTracking("going_pickup"), true);
   });
 
   it("开启后持续为上报中，不用 3 分钟失联；未开启为 off；送达 ended", () => {
