@@ -1,10 +1,7 @@
-$ErrorActionPreference = "Stop"
+﻿$ErrorActionPreference = "Stop"
 $BuildRoot = if ($env:ANTS_ANDROID_BUILD) { $env:ANTS_ANDROID_BUILD } else { "C:\Users\10841\android-build" }
-$link = Get-Item -LiteralPath $PSScriptRoot
+# aapt2 不吃含中文的路径：必须从 ASCII junction（如 android-build\ants-android）打包，不要 resolve 到真实目录
 $Project = $PSScriptRoot
-if ($link.LinkType -eq "Junction" -and $link.Target) {
-    $Project = [string]($link.Target | Select-Object -First 1)
-}
 $Sdk = Join-Path $BuildRoot "sdk"
 $BuildTools = Join-Path $Sdk "build-tools\34.0.0"
 $AndroidJar = Join-Path $Sdk "platforms\android-34\android.jar"
@@ -13,7 +10,8 @@ $Kotlinc = Join-Path $BuildRoot "kotlinc\bin\kotlinc.bat"
 $Stdlib = Join-Path $BuildRoot "kotlinc\lib\kotlin-stdlib.jar"
 $Work = Join-Path $BuildRoot "apk-work"
 $Keystore = Join-Path $BuildRoot "debug.keystore"
-$Out = Join-Path (Split-Path $Project -Parent) "ANTS-driver.apk"
+$OutDir = if (Test-Path (Join-Path $BuildRoot "ants-android")) { $BuildRoot } else { Split-Path $Project -Parent }
+$Out = Join-Path $OutDir "ANTS-driver.apk"
 
 if (-not (Test-Path $Kotlinc)) { throw "Missing Kotlin compiler: $Kotlinc" }
 if (-not (Test-Path $AndroidJar)) { throw "Missing Android platform: $AndroidJar" }

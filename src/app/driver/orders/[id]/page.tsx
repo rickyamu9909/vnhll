@@ -2,14 +2,17 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Alert, Button, Card, Descriptions, Form, InputNumber, Select, Space, Typography, message } from "antd";
+import { Alert, Button, Card, Descriptions, Form, InputNumber, Modal, Select, Space, Typography, message } from "antd";
 import { DriverShell } from "@/components/DriverShell";
 import { BackButton } from "@/components/BackButton";
+import { MultiPhotoPicker } from "@/components/MultiPhotoPicker";
+import { OrderProofPhotos } from "@/components/OrderProofPhotos";
 import { apiFetch, pathLabel, statusLabel } from "@/lib/client";
 import { useI18n } from "@/components/I18nProvider";
 import { formatVnd } from "@/lib/money";
 import { DriverNavMap } from "@/components/DriverNavMap";
 import { DRIVER_ISSUE, DRIVER_STAGES, stageLabel } from "@/lib/stages";
+import { parseProofPhotos } from "@/lib/proof-photos";
 
 type Detail = {
   id: string;
@@ -34,6 +37,15 @@ type Detail = {
   weightTons?: number;
   myBidPriceVnd?: string | null;
   driverStage?: string | null;
+  pickupPhotos?: string | null;
+  deliveryPhotos?: string | null;
+};
+
+type PhotoStage = "picked" | "delivered";
+
+const PHOTO_STAGE_META: Record<PhotoStage, { title: string; tip: string }> = {
+  picked: { title: "上传装车照片", tip: "请至少上传 1 张装车照片后确认已提货。客户与您均可在订单详情查看。" },
+  delivered: { title: "上传卸车完成照片", tip: "请至少上传 1 张卸车完成照片后确认已送达。客户与您均可在订单详情查看。" },
 };
 
 export default function DriverOrderDetail() {
@@ -43,6 +55,8 @@ export default function DriverOrderDetail() {
   const [order, setOrder] = useState<Detail | null>(null);
   const [subs, setSubs] = useState<Array<{ id: string; displayName?: string; username: string }>>([]);
   const lastStageClick = useRef<{ key: string; at: number } | null>(null);
+  const [photoModal, setPhotoModal] = useState<{ stage: PhotoStage; photos: string[] } | null>(null);
+  const [submittingPhotos, setSubmittingPhotos] = useState(false);
 
   const load = async () => {
     const res = await apiFetch<Detail>(`/api/driver/orders/${id}`);
@@ -76,6 +90,24 @@ export default function DriverOrderDetail() {
       if (action === "bid" || action === "accept") router.push("/driver/orders");
       else load();
     }
+    return res.ok;
+  };
+
+  const openPhotoStage = (stage: PhotoStage) => {
+    const existing = stage === "picked" ? parseProofPhotos(order?.pickupPhotos) : parseProofPhotos(order?.deliveryPhotos);
+    setPhotoModal({ stage, photos: existing });
+  };
+
+  const confirmPhotoStage = async () => {
+    if (!photoModal) return;
+    if (photoModal.photos.length < 1) {
+      message.warning(photoModal.stage === "picked" ? "请上传装车照片" : "请上传卸车完成照片");
+      return;
+    }
+    setSubmittingPhotos(true);
+    const ok = await act("stage", { stage: photoModal.stage, photos: photoModal.photos });
+    setSubmittingPhotos(false);
+    if (ok) setPhotoModal(null);
   };
 
   const onStageClick = (stageKey: string) => {
@@ -93,6 +125,10 @@ export default function DriverOrderDetail() {
       return;
     }
     lastStageClick.current = { key: stageKey, at: now };
+    if (stageKey === "picked" || stageKey === "delivered") {
+      openPhotoStage(stageKey);
+      return;
+    }
     void act("stage", { stage: stageKey });
   };
 
@@ -103,6 +139,8 @@ export default function DriverOrderDetail() {
       </DriverShell>
     );
   }
+
+  const photoMeta = photoModal ? PHOTO_STAGE_META[photoModal.stage] : null;
 
   return (
     <DriverShell>
@@ -137,6 +175,7 @@ export default function DriverOrderDetail() {
           </Descriptions.Item>
           <Descriptions.Item label="货物">{order.cargoName}</Descriptions.Item>
         </Descriptions>
+        <OrderProofPhotos pickupPhotos={order.pickupPhotos} deliveryPhotos={order.deliveryPhotos} />
         {order.myBidPriceVnd ? (
           <Alert style={{ marginTop: 16 }} type="info" showIcon message={`已报价 ${formatVnd(order.myBidPriceVnd)} VND。再次进入会看到这条报价，可以直接修改，不必重复提交同一价格。`} />
         ) : null}
@@ -161,7 +200,7 @@ export default function DriverOrderDetail() {
           {["PENDING_EXECUTION", "IN_TRANSIT", "DELIVERED", "MATCHED"].includes(order.status) ? (
             <div>
               <Typography.Paragraph type="secondary" style={{ marginBottom: 8 }}>
-                单击选择并锁定节点；已锁定按钮置灰，双击可取消并写入「取消节点」日志。
+                单击锁定节点。「前往提货」后开始持续上报位置；「已提货 / 已送达」需上传照片。已锁定按钮置灰，双击可取消并记日志。
               </Typography.Paragraph>
               <Space wrap>
                 {DRIVER_STAGES.map((stage) => {
@@ -206,6 +245,26 @@ export default function DriverOrderDetail() {
           </Form>
         ) : null}
       </Card>
+
+      <Modal
+        title={photoMeta?.title}
+        open={!!photoModal}
+        onCancel={() => !submittingPhotos && setPhotoModal(null)}
+        onOk={confirmPhotoStage}
+        okText="确认并锁定节点"
+        cancelText="取消"
+        confirmLoading={submittingPhotos}
+        destroyOnClose
+      >
+        <Typography.Paragraph type="secondary">{photoMeta?.tip}</Typography.Paragraph>
+        {photoModal ? (
+          <MultiPhotoPicker
+            value={photoModal.photos}
+            maxCount={6}
+            onChange={(photos) => setPhotoModal((prev) => (prev ? { ...prev, photos } : prev))}
+          />
+        ) : null}
+      </Modal>
     </DriverShell>
   );
 }

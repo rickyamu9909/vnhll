@@ -7,6 +7,7 @@ import dayjs from "dayjs";
 import { ActionButton } from "@/components/ActionButton";
 import { CustomerShell } from "@/components/CustomerShell";
 import { BackButton } from "@/components/BackButton";
+import { OrderProofPhotos } from "@/components/OrderProofPhotos";
 import { PostPublishGuide } from "@/components/PostPublishGuide";
 import { useI18n } from "@/components/I18nProvider";
 import { apiFetch, statusLabel, vehicleLabel } from "@/lib/client";
@@ -40,6 +41,8 @@ type OrderDetail = {
   routeDurationMin?: number | null;
   routeSource?: string | null;
   suggestCount?: number;
+  pickupPhotos?: string | null;
+  deliveryPhotos?: string | null;
   carrierBids?: Array<{ id: string; priceVnd: string; bidderName: string }>;
   matchedDriver?: { name: string; plateNumber?: string | null } | null;
 };
@@ -265,6 +268,7 @@ function OrderDetailInner() {
             </Descriptions.Item>
           ) : null}
         </Descriptions>
+        <OrderProofPhotos pickupPhotos={order.pickupPhotos} deliveryPhotos={order.deliveryPhotos} />
         {order.carrierBids && order.carrierBids.length > 0 ? (
           <Table
             style={{ marginTop: 16 }}

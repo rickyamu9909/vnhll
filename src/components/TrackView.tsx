@@ -12,26 +12,27 @@ type TrackData = {
   orderNo: string;
   status: string;
   shareOn: boolean;
-  freshness: "live" | "lost" | "off" | "ended";
+  freshness: "live" | "off" | "ended";
   pickupAddress: string;
   deliveryAddress: string;
+  originLabel?: string;
+  destLabel?: string;
   origin: { lat: number; lng: number } | null;
   dest: { lat: number; lng: number } | null;
   latest: Point | null;
   points: Point[];
 };
 
-declare global {
-  interface Window {
-    L?: {
-      map: (el: HTMLElement, options?: object) => LeafletMap;
-      tileLayer: (url: string, options?: object) => { addTo: (map: LeafletMap) => { on: (name: string, fn: () => void) => void } };
-      polyline: (latlngs: Array<[number, number]>, options?: object) => { addTo: (map: LeafletMap) => void };
-      circleMarker: (latlng: [number, number], options?: object) => { addTo: (map: LeafletMap) => { bindTooltip: (text: string) => void } };
-      latLngBounds: (latlngs: Array<[number, number]>) => unknown;
-    };
-  }
-}
+type LeafletNS = {
+  map: (el: HTMLElement, options?: object) => LeafletMap;
+  tileLayer: (url: string, options?: object) => { addTo: (map: LeafletMap) => { on: (name: string, fn: () => void) => void } };
+  polyline: (latlngs: Array<[number, number]>, options?: object) => { addTo: (map: LeafletMap) => void };
+  marker: (latlng: [number, number], options?: object) => {
+    addTo: (map: LeafletMap) => { bindPopup: (html: string, options?: object) => void };
+  };
+  divIcon: (options: object) => unknown;
+  latLngBounds: (latlngs: Array<[number, number]>) => unknown;
+};
 
 type LeafletMap = {
   setView: (latlng: [number, number], zoom: number) => void;
@@ -40,16 +41,28 @@ type LeafletMap = {
   invalidateSize: () => void;
 };
 
+declare global {
+  interface Window {
+    L?: LeafletNS;
+  }
+}
+
 const FRESH: Record<TrackData["freshness"], string> = {
   live: "track.live",
-  lost: "track.lost",
   off: "track.off",
   ended: "track.ended",
 };
 
+function shortLabel(text?: string | null, fallback = "") {
+  const raw = (text || fallback || "").trim();
+  if (!raw) return fallback;
+  const part = raw.split(/[,，/]/)[0]?.trim() || raw;
+  return part.length > 12 ? `${part.slice(0, 12)}…` : part;
+}
+
 function loadLeaflet() {
   if (window.L) return Promise.resolve(window.L);
-  return new Promise<NonNullable<Window["L"]>>((resolve, reject) => {
+  return new Promise<LeafletNS>((resolve, reject) => {
     if (!document.querySelector("link[data-leaflet]")) {
       const link = document.createElement("link");
       link.rel = "stylesheet";
@@ -73,35 +86,39 @@ function loadLeaflet() {
   });
 }
 
-function TrailSketch({ points }: { points: Point[] }) {
-  if (!points.length) return null;
-  const lats = points.map((point) => point.lat);
-  const lngs = points.map((point) => point.lng);
-  let minLat = Math.min(...lats);
-  let maxLat = Math.max(...lats);
-  let minLng = Math.min(...lngs);
-  let maxLng = Math.max(...lngs);
-  if (maxLat - minLat < 0.01) {
-    minLat -= 0.005;
-    maxLat += 0.005;
+async function fetchNavRoute(origin: { lat: number; lng: number }, dest: { lat: number; lng: number }) {
+  try {
+    const url = `https://router.project-osrm.org/route/v1/driving/${origin.lng},${origin.lat};${dest.lng},${dest.lat}?overview=full&geometries=geojson`;
+    const res = await fetch(url);
+    const data = await res.json();
+    const coords = data.routes?.[0]?.geometry?.coordinates as Array<[number, number]> | undefined;
+    if (!coords?.length) return null;
+    return coords.map(([lng, lat]) => [lat, lng] as [number, number]);
+  } catch {
+    return null;
   }
-  if (maxLng - minLng < 0.01) {
-    minLng -= 0.005;
-    maxLng += 0.005;
-  }
-  const xy = (point: Point) => {
-    const x = ((point.lng - minLng) / (maxLng - minLng)) * 100;
-    const y = (1 - (point.lat - minLat) / (maxLat - minLat)) * 100;
-    return `${x},${y}`;
-  };
-  const last = points[points.length - 1];
-  const [cx, cy] = xy(last).split(",");
-  return (
-    <svg viewBox="0 0 100 100" style={{ width: "100%", height: 180, background: "#e8eef6", borderRadius: 8 }}>
-      <polyline fill="none" stroke="#1677ff" strokeWidth="1.5" points={points.map(xy).join(" ")} />
-      <circle cx={cx} cy={cy} r="2.2" fill="#d4380d" />
-    </svg>
-  );
+}
+
+function placeIconHtml(kind: "fa" | "shou", label: string) {
+  const bg = kind === "fa" ? "#52c41a" : "#237804";
+  const word = kind === "fa" ? "发" : "收";
+  return `<div style="display:flex;align-items:center;gap:4px;transform:translate(-8px,-28px)">
+    <div style="width:28px;height:28px;border-radius:50%;background:${bg};color:#fff;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.25)">${word}</div>
+    <div style="background:#fff;border-radius:14px;padding:4px 10px;font-size:12px;color:#262626;box-shadow:0 2px 8px rgba(0,0,0,.15);white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis">${label}</div>
+  </div>`;
+}
+
+function truckIconHtml(statusText: string, destHint: string) {
+  const line1 = statusText || "运输中";
+  const line2 = destHint ? `正在发往${destHint}` : "";
+  return `<div style="position:relative;transform:translate(-40px,-70px);width:120px;text-align:center">
+    <div style="display:inline-block;background:#52c41a;color:#fff;border-radius:8px;padding:6px 10px;font-size:12px;line-height:1.35;box-shadow:0 4px 12px rgba(82,196,26,.45);max-width:160px;text-align:left">
+      <div style="font-weight:600">${line1}</div>
+      ${line2 ? `<div style="opacity:.95;margin-top:2px">${line2}</div>` : ""}
+    </div>
+    <div style="width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-top:8px solid #52c41a;margin:0 auto"></div>
+    <div style="font-size:34px;line-height:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))">🚚</div>
+  </div>`;
 }
 
 export function TrackView({ apiUrl, backHref }: { apiUrl: string; backHref: string }) {
@@ -128,29 +145,96 @@ export function TrackView({ apiUrl, backHref }: { apiUrl: string; backHref: stri
   }, [apiUrl, t]);
 
   useEffect(() => {
-    const points = data?.points || [];
-    if (!mapNode.current || !points.length) return;
+    if (!mapNode.current || !data) return;
+    const origin = data.origin;
+    const dest = data.dest;
+    const points = data.points || [];
+    if (!origin && !dest && !points.length) return;
+
     let cancelled = false;
-    loadLeaflet()
-      .then((L) => {
+    (async () => {
+      try {
+        const L = await loadLeaflet();
         if (cancelled || !mapNode.current) return;
         mapRef.current?.remove();
         const map = L.map(mapNode.current, { zoomControl: true });
         mapRef.current = map;
-        const tiles = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "&copy; OpenStreetMap" }).addTo(map);
+        const tiles = L.tileLayer("https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}", {
+          maxZoom: 20,
+          subdomains: ["mt0", "mt1", "mt2", "mt3"],
+          attribution: "Google",
+        }).addTo(map);
         tiles.on("tileerror", () => setTileFailed(true));
-        const line = points.map((point) => [point.lat, point.lng] as [number, number]);
-        L.polyline(line, { color: "#1677ff", weight: 4 }).addTo(map);
-        const last = line[line.length - 1];
-        L.circleMarker(last, { radius: 8, color: "#d4380d", fillOpacity: 0.9 }).addTo(map).bindTooltip(data?.latest?.statusText || "");
-        if (data?.origin) L.circleMarker([data.origin.lat, data.origin.lng], { radius: 6, color: "#1677ff" }).addTo(map).bindTooltip(t("form.section_origin", "起运"));
-        if (data?.dest) L.circleMarker([data.dest.lat, data.dest.lng], { radius: 6, color: "#389e0d" }).addTo(map).bindTooltip(t("form.section_dest", "目的地"));
-        const bounds = L.latLngBounds(line);
-        if (line.length === 1) map.setView(last, 14);
-        else map.fitBounds(bounds, { padding: [24, 24] });
+
+        const boundsPts: Array<[number, number]> = [];
+
+        // 默认：起运地 → 目的地导航路线
+        if (origin && dest) {
+          const nav = await fetchNavRoute(origin, dest);
+          if (cancelled) return;
+          const navLine = nav?.length ? nav : ([[origin.lat, origin.lng], [dest.lat, dest.lng]] as Array<[number, number]>);
+          L.polyline(navLine, { color: "#95de64", weight: 5, opacity: 0.85 }).addTo(map);
+          boundsPts.push(...navLine);
+        }
+
+        // 已上报轨迹（实线加深）
+        if (points.length >= 2) {
+          const trail = points.map((p) => [p.lat, p.lng] as [number, number]);
+          L.polyline(trail, { color: "#237804", weight: 4, opacity: 0.95 }).addTo(map);
+          boundsPts.push(...trail);
+        } else if (points.length === 1) {
+          boundsPts.push([points[0].lat, points[0].lng]);
+        }
+
+        const originName = shortLabel(data.originLabel, t("form.section_origin", "起运"));
+        const destName = shortLabel(data.destLabel, t("form.section_dest", "目的地"));
+
+        if (origin) {
+          L.marker([origin.lat, origin.lng], {
+            icon: L.divIcon({
+              className: "",
+              html: placeIconHtml("fa", originName),
+              iconSize: [120, 36],
+              iconAnchor: [14, 28],
+            }),
+          }).addTo(map);
+          boundsPts.push([origin.lat, origin.lng]);
+        }
+        if (dest) {
+          L.marker([dest.lat, dest.lng], {
+            icon: L.divIcon({
+              className: "",
+              html: placeIconHtml("shou", destName),
+              iconSize: [120, 36],
+              iconAnchor: [14, 28],
+            }),
+          }).addTo(map);
+          boundsPts.push([dest.lat, dest.lng]);
+        }
+
+        const vehicle = data.latest || (points.length ? points[points.length - 1] : null);
+        if (vehicle) {
+          L.marker([vehicle.lat, vehicle.lng], {
+            icon: L.divIcon({
+              className: "",
+              html: truckIconHtml(vehicle.statusText, destName),
+              iconSize: [120, 90],
+              iconAnchor: [40, 70],
+            }),
+            zIndexOffset: 1000,
+          }).addTo(map);
+          boundsPts.push([vehicle.lat, vehicle.lng]);
+        }
+
+        if (boundsPts.length === 1) map.setView(boundsPts[0], 14);
+        else if (boundsPts.length > 1) map.fitBounds(L.latLngBounds(boundsPts), { padding: [48, 48] });
+        else map.setView([10.77, 106.7], 11);
         window.setTimeout(() => map.invalidateSize(), 200);
-      })
-      .catch(() => setTileFailed(true));
+      } catch {
+        setTileFailed(true);
+      }
+    })();
+
     return () => {
       cancelled = true;
       mapRef.current?.remove();
@@ -161,8 +245,7 @@ export function TrackView({ apiUrl, backHref }: { apiUrl: string; backHref: stri
   const freshKey = data ? FRESH[data.freshness] : "track.off";
   const freshFallback: Record<TrackData["freshness"], string> = {
     live: "上报中",
-    lost: "已开启，已失联",
-    off: "未开启",
+    off: "未开启（需司机点前往提货）",
     ended: "已结束",
   };
 
@@ -178,7 +261,7 @@ export function TrackView({ apiUrl, backHref }: { apiUrl: string; backHref: stri
         <Descriptions size="small" column={{ xs: 1, sm: 2 }}>
           <Descriptions.Item label={t("order.status", "订单状态")}>{data ? statusLabel(data.status, t) : "-"}</Descriptions.Item>
           <Descriptions.Item label={t("track.report", "上报状态")}>
-            <Tag color={data?.freshness === "live" ? "green" : data?.freshness === "lost" ? "gold" : "default"}>
+            <Tag color={data?.freshness === "live" ? "green" : data?.freshness === "ended" ? "default" : "default"}>
               {t(freshKey, data ? freshFallback[data.freshness] : "未开启")}
             </Tag>
           </Descriptions.Item>
@@ -191,12 +274,14 @@ export function TrackView({ apiUrl, backHref }: { apiUrl: string; backHref: stri
         </Descriptions>
       </Card>
       <Card title={t("track.map", "轨迹地图")} style={{ marginBottom: 12 }}>
-        <div ref={mapNode} className="track-map" />
-        {tileFailed || !data?.points.length ? (
-          <div style={{ marginTop: 8 }}>
-            <Typography.Text type="secondary">{t("track.sketch", "底图不可用时仍显示轨迹简图")}</Typography.Text>
-            <TrailSketch points={data?.points || []} />
-          </div>
+        <Typography.Paragraph type="secondary" style={{ marginTop: 0 }}>
+          默认展示起运地到目的地导航路线；司机点「前往提货」后持续上报当前位置（货车图标）。
+        </Typography.Paragraph>
+        <div ref={mapNode} className="track-map" style={{ height: 420, borderRadius: 8, background: "#e8eef6" }} />
+        {tileFailed ? (
+          <Typography.Text type="secondary" style={{ display: "block", marginTop: 8 }}>
+            {t("track.sketch", "底图加载异常时仍可查看上方信息与上报记录")}
+          </Typography.Text>
         ) : null}
       </Card>
       <Card title={t("track.list", "上报记录")}>

@@ -85,7 +85,7 @@ class ShareService : Service() {
         )
         val notification: Notification = Notification.Builder(this, CHANNEL)
             .setContentTitle("位置上报中")
-            .setContentText("每 30 秒上报。切屏或锁屏仍会继续。")
+            .setContentText("前往提货后持续上报。切屏或锁屏仍会继续。")
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
             .setOngoing(true)
             .setContentIntent(open)

@@ -15,8 +15,10 @@ import { geocode, routeEstimate } from "./geo";
 import { volumeFromItems } from "./order-form";
 import { scoreRouteFit, SUGGEST_MIN_SCORE } from "./route-score";
 import { DRIVER_ISSUE, DRIVER_STAGES } from "./stages";
-import { shareOnForStatus } from "./track";
+import { shareOnForStatus, stageEnablesTracking } from "./track";
 import { capacityMatchBlock, placeById, placeFromText } from "./places";
+
+export { parseProofPhotos } from "./proof-photos";
 
 export type CargoItemInput = {
   lengthCm: number;
@@ -278,7 +280,8 @@ function lowestBid<T extends { priceVnd: bigint; createdAt: Date }>(bids: T[]) {
 function settled(price: bigint, bps: number) {
   return {
     status: OrderStatus.PENDING_EXECUTION,
-    trackShareOn: true,
+    // 轨迹不在成交时开启，须司机点「前往提货」后才 trackShareOn=true
+    trackShareOn: false,
     auditDeadline: null as Date | null,
     rejectReason: null as string | null,
     ...moneyFields(price, bps),
@@ -385,7 +388,7 @@ async function runSweep() {
       where: { id: order.id },
       data: {
         status: OrderStatus.PENDING_EXECUTION,
-        trackShareOn: true,
+        trackShareOn: false,
         auditDeadline: null,
         rejectReason: null,
         statusLogs: { create: { fromStatus: order.status, toStatus: OrderStatus.PENDING_EXECUTION, note: "平台不审核匹配，直接进入待执行" } },
@@ -513,7 +516,7 @@ export async function auditOrder(orderId: string, adminId: string, pass: boolean
     where: { id: orderId },
     data: {
       status: OrderStatus.PENDING_EXECUTION,
-      trackShareOn: true,
+      trackShareOn: false,
       rejectReason: null,
       statusLogs: { create: { fromStatus: order.status, toStatus: OrderStatus.PENDING_EXECUTION, note: "平台审核通过", operatorId: adminId } },
     },
@@ -561,7 +564,8 @@ export async function advanceOrder(orderId: string, userId: string, asAdmin = fa
     where: { id: orderId },
     data: {
       status: next,
-      trackShareOn: shareOnForStatus(next),
+      // 推进状态不自动开轨迹；送达则关闭；其余保持原开关
+      trackShareOn: shareOnForStatus(next) ? order.trackShareOn : false,
       statusLogs: { create: { fromStatus: order.status, toStatus: next, note: "履约状态推进", operatorId: userId } },
     },
   });
@@ -569,7 +573,22 @@ export async function advanceOrder(orderId: string, userId: string, asAdmin = fa
   return updated;
 }
 
-export async function setDriverStage(orderId: string, userId: string, stageKey: string) {
+const MAX_PROOF_PHOTOS = 6;
+const MAX_PROOF_PHOTO_CHARS = 250_000;
+
+/** 校验并规范化履约照片（装车 / 卸车），返回可入库的 JSON 数组 */
+export function normalizeProofPhotos(raw: unknown, label: string): string[] {
+  const list = Array.isArray(raw) ? raw.map(String).filter(Boolean) : typeof raw === "string" && raw ? [raw] : [];
+  if (list.length < 1) throw new Error(`请上传${label}`);
+  if (list.length > MAX_PROOF_PHOTOS) throw new Error(`${label}最多 ${MAX_PROOF_PHOTOS} 张`);
+  for (const photo of list) {
+    if (!photo.startsWith("data:image/") && !photo.startsWith("http")) throw new Error(`${label}格式不正确`);
+    if (photo.startsWith("data:image/") && photo.length > MAX_PROOF_PHOTO_CHARS) throw new Error(`${label}过大，请压缩后重试`);
+  }
+  return list;
+}
+
+export async function setDriverStage(orderId: string, userId: string, stageKey: string, photos?: unknown) {
   const order = await prisma.order.findUnique({ where: { id: orderId } });
   if (!order) throw new Error("订单不存在");
   if (order.acceptedByUserId !== userId && order.assignedToUserId !== userId) throw new Error("无权更新该订单");
@@ -583,14 +602,31 @@ export async function setDriverStage(orderId: string, userId: string, stageKey: 
   }
   const next = (issue ? order.status : spec!.status) as OrderStatus;
   const label = issue ? DRIVER_ISSUE.label : spec!.label;
+  let trackShareOn = order.trackShareOn;
+  if (stageKey === "delivered" || !shareOnForStatus(next)) {
+    trackShareOn = false;
+  } else if (stageEnablesTracking(stageKey)) {
+    // 前往提货 / 已提货 / 运输中：开启并由当前操作司机持续上报
+    trackShareOn = true;
+  } else if (stageKey === "wait_pickup") {
+    trackShareOn = false;
+  }
+  // 车辆异常：不改轨迹开关
+  const data: Prisma.OrderUpdateInput = {
+    driverStage: stageKey,
+    status: next,
+    trackShareOn,
+    statusLogs: { create: { fromStatus: order.status, toStatus: next, note: `司机更新节点：${label}`, operatorId: userId } },
+  };
+  if (stageKey === "picked") {
+    data.pickupPhotos = JSON.stringify(normalizeProofPhotos(photos, "装车照片"));
+  }
+  if (stageKey === "delivered") {
+    data.deliveryPhotos = JSON.stringify(normalizeProofPhotos(photos, "卸车完成照片"));
+  }
   const updated = await prisma.order.update({
     where: { id: orderId },
-    data: {
-      driverStage: stageKey,
-      status: next,
-      trackShareOn: shareOnForStatus(next),
-      statusLogs: { create: { fromStatus: order.status, toStatus: next, note: `司机更新节点：${label}`, operatorId: userId } },
-    },
+    data,
   });
   await logOp(userId, "ORDER_STAGE", "order", orderId, stageKey);
   return updated;
@@ -602,10 +638,13 @@ export async function cancelDriverStage(orderId: string, userId: string, stageKe
   if (order.acceptedByUserId !== userId && order.assignedToUserId !== userId) throw new Error("无权更新该订单");
   if (order.driverStage !== stageKey) throw new Error("只能取消当前已锁定的节点");
   const label = stageKey === DRIVER_ISSUE.key ? DRIVER_ISSUE.label : DRIVER_STAGES.find((s) => s.key === stageKey)?.label || stageKey;
+  // 取消「前往提货」且仍待执行 → 停止上报；已运输中则保持上报
+  const stopShare = stageKey === "going_pickup" || (order.status === OrderStatus.PENDING_EXECUTION && stageEnablesTracking(stageKey));
   const updated = await prisma.order.update({
     where: { id: orderId },
     data: {
       driverStage: null,
+      ...(stopShare ? { trackShareOn: false } : {}),
       statusLogs: {
         create: {
           fromStatus: order.status,

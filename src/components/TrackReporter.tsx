@@ -131,7 +131,8 @@ export function TrackReporter() {
           delay = Math.min(Math.max(delay * 2, 30000), 120000);
           schedule(delay);
         },
-        { enableHighAccuracy: false, timeout: 15000, maximumAge: 15000 }
+        // 不限制速度/移动；静止也照常取点上报
+        { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
       );
     };
 
@@ -163,8 +164,8 @@ export function TrackReporter() {
           />
           <Typography.Text type="secondary">
             {native
-              ? t("track.native_on", "切到其他应用或锁屏后仍会每 30 秒上报。通知栏里的停止可以结束。")
-              : t("track.keep_open", "请保持本页打开，每 30 秒上报一次。关掉浏览器后会停止。")}
+              ? t("track.native_on", "已点「前往提货」的订单持续上报；切屏或锁屏仍每 30 秒一次。通知栏「停止」可结束。")
+              : t("track.keep_open", "已点「前往提货」后持续上报（约 30 秒一次）。请保持本页打开；关掉浏览器会停止。")}
           </Typography.Text>
         </Space>
       }

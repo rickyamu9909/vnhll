@@ -21,6 +21,7 @@ import dayjs from "dayjs";
 import { CopyOutlined } from "@ant-design/icons";
 import { AdminShell } from "@/components/AdminShell";
 import { BackButton } from "@/components/BackButton";
+import { OrderProofPhotos } from "@/components/OrderProofPhotos";
 import { useI18n } from "@/components/I18nProvider";
 import { apiFetch, statusLabel, vehicleLabel } from "@/lib/client";
 import { formatVnd } from "@/lib/money";
@@ -49,6 +50,8 @@ type OrderDetail = {
   driverIncomeVnd?: string | null;
   rejectReason?: string;
   notifyText?: string;
+  pickupPhotos?: string | null;
+  deliveryPhotos?: string | null;
   matchedDriver?: Driver | null;
   bids: Bid[];
   customer?: { username: string; displayName?: string; company?: { companyName: string } };
@@ -238,6 +241,7 @@ export default function AdminOrderDetailPage() {
             </Descriptions.Item>
           ) : null}
         </Descriptions>
+        <OrderProofPhotos pickupPhotos={order.pickupPhotos} deliveryPhotos={order.deliveryPhotos} />
       </Card>
 
           {(order.status === "LOCKED" || order.status === "PENDING_AUDIT") && (

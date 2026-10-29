@@ -4,13 +4,15 @@ import { cleanRecordedAt, cleanSpeed, cleanStatusText, shareOnForStatus, trackFr
 
 const OPEN_STATUSES: OrderStatus[] = [OrderStatus.PENDING_EXECUTION, OrderStatus.IN_TRANSIT, OrderStatus.MATCHED];
 
+/** 仅返回已点「前往提货」开启上报（trackShareOn）且由当前司机执行的订单 */
 export async function activeTrackOrders(userId: string) {
   return prisma.order.findMany({
     where: {
+      trackShareOn: true,
       status: { in: OPEN_STATUSES },
       OR: [{ assignedToUserId: userId }, { assignedToUserId: null, acceptedByUserId: userId }],
     },
-    select: { id: true, orderNo: true, status: true },
+    select: { id: true, orderNo: true, status: true, driverStage: true },
     orderBy: { updatedAt: "desc" },
     take: 20,
   });
@@ -32,10 +34,11 @@ export async function saveTrackReports(
     }
     const order = await prisma.order.findUnique({
       where: { id: orderId },
-      select: { id: true, status: true, acceptedByUserId: true, assignedToUserId: true },
+      select: { id: true, status: true, trackShareOn: true, acceptedByUserId: true, assignedToUserId: true },
     });
     const owner = order?.assignedToUserId || order?.acceptedByUserId;
-    if (!order || owner !== userId || !shareOnForStatus(order.status)) {
+    // 不校验速度：静止/无速度也可落点；必须已开启 trackShareOn（前往提货）
+    if (!order || owner !== userId || !order.trackShareOn || !shareOnForStatus(order.status)) {
       rejected.push(orderId);
       continue;
     }
@@ -57,7 +60,6 @@ export async function saveTrackReports(
         recordedAt,
       },
     });
-    await prisma.order.update({ where: { id: orderId }, data: { trackShareOn: true } });
     saved += 1;
   }
   return { saved, rejected };
@@ -71,12 +73,15 @@ export async function readOrderTrack(orderId: string) {
       orderNo: true,
       status: true,
       trackShareOn: true,
+      driverStage: true,
       pickupAddress: true,
       deliveryAddress: true,
       originLat: true,
       originLng: true,
       destLat: true,
       destLng: true,
+      originCity: true,
+      destCity: true,
     },
   });
   if (!order) return null;
@@ -88,14 +93,17 @@ export async function readOrderTrack(orderId: string) {
   });
   points.reverse();
   const latest = points[points.length - 1] || null;
-  const shareOn = order.trackShareOn || shareOnForStatus(order.status);
+  const shareOn = !!order.trackShareOn && shareOnForStatus(order.status);
   return {
     orderNo: order.orderNo,
     status: order.status,
     shareOn,
+    driverStage: order.driverStage,
     freshness: trackFreshness(order.status, shareOn, latest?.recordedAt || null),
     pickupAddress: order.pickupAddress,
     deliveryAddress: order.deliveryAddress,
+    originLabel: order.originCity || order.pickupAddress,
+    destLabel: order.destCity || order.deliveryAddress,
     origin: order.originLat != null && order.originLng != null ? { lat: order.originLat, lng: order.originLng } : null,
     dest: order.destLat != null && order.destLng != null ? { lat: order.destLat, lng: order.destLng } : null,
     latest: latest

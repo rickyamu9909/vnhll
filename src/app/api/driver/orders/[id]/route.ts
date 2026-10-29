@@ -48,7 +48,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     if (action === "bid") return jsonOk(await placeBid(params.id, user!.id, toBigIntMoney(body.priceVnd)));
     if (action === "assign") return jsonOk(await assignSub(params.id, user!.id, String(body.subUserId)));
     if (action === "advance") return jsonOk(await advanceOrder(params.id, user!.id, false));
-    if (action === "stage") return jsonOk(await setDriverStage(params.id, user!.id, String(body.stage || "")));
+    if (action === "stage") return jsonOk(await setDriverStage(params.id, user!.id, String(body.stage || ""), body.photos));
     if (action === "stage_cancel") return jsonOk(await cancelDriverStage(params.id, user!.id, String(body.stage || "")));
     return jsonFail("未知操作");
   } catch (e) {

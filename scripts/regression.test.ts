@@ -5,7 +5,9 @@ import { calcByBps } from "../src/lib/money";
 import { orderToFormValues, pickupIsPast, savedToForm, volumeFromItems } from "../src/lib/order-form";
 import { haversineKm, matchPair } from "../src/lib/geo";
 import { scoreRouteFit, SUGGEST_MIN_SCORE } from "../src/lib/route-score";
-import { cleanRecordedAt, trackFreshness, validCoord } from "../src/lib/track";
+import { cleanRecordedAt, shareOnForStatus, stageEnablesTracking, trackFreshness, validCoord } from "../src/lib/track";
+import { normalizeProofPhotos } from "../src/lib/market";
+import { parseProofPhotos } from "../src/lib/proof-photos";
 import { assertOrderRegion, knownProvince, provinceOptions, REGION_COUNTS, wardsOf } from "../src/lib/regions";
 import { capacityMatchBlock, placeById } from "../src/lib/places";
 import { parseSavedAddress } from "../src/lib/saved-address";
@@ -259,10 +261,23 @@ describe("顺路度打分", () => {
 describe("司机轨迹", () => {
   const now = Date.parse("2026-10-14T08:00:00.000Z");
 
-  it("执行中 3 分钟内是上报中，超时是失联，送达后结束", () => {
+  it("状态仅允许上报窗口；真正开启看 trackShareOn（前往提货）", () => {
+    assert.equal(shareOnForStatus("PENDING_EXECUTION"), true);
+    assert.equal(shareOnForStatus("IN_TRANSIT"), true);
+    assert.equal(shareOnForStatus("MATCHED"), true);
+    assert.equal(shareOnForStatus("DELIVERED"), false);
+    assert.equal(shareOnForStatus("COMPLETED"), false);
+    assert.equal(shareOnForStatus("OPEN"), false);
+    assert.equal(stageEnablesTracking("going_pickup"), true);
+    assert.equal(stageEnablesTracking("picked"), true);
+    assert.equal(stageEnablesTracking("wait_pickup"), false);
+  });
+
+  it("开启后持续为上报中，不用 3 分钟失联；未开启为 off；送达 ended", () => {
     assert.equal(trackFreshness("IN_TRANSIT", true, new Date(now - 60 * 1000), now), "live");
-    assert.equal(trackFreshness("IN_TRANSIT", true, new Date(now - 4 * 60 * 1000), now), "lost");
-    assert.equal(trackFreshness("PENDING_EXECUTION", true, null, now), "lost");
+    assert.equal(trackFreshness("IN_TRANSIT", true, new Date(now - 4 * 60 * 1000), now), "live");
+    assert.equal(trackFreshness("PENDING_EXECUTION", true, null, now), "live");
+    assert.equal(trackFreshness("PENDING_EXECUTION", false, null, now), "off");
     assert.equal(trackFreshness("OPEN", false, null, now), "off");
     assert.equal(trackFreshness("DELIVERED", true, new Date(now), now), "ended");
   });
@@ -273,6 +288,20 @@ describe("司机轨迹", () => {
     assert.equal(validCoord(120, 10), null);
     assert.equal(cleanRecordedAt("2026-10-13T07:00:00.000Z", now), null);
     assert.ok(cleanRecordedAt("2026-10-14T07:30:00.000Z", now));
+  });
+});
+
+describe("履约照片", () => {
+  it("装车/卸车至少一张，拒绝非法格式", () => {
+    const ok = normalizeProofPhotos(["data:image/jpeg;base64,abc"], "装车照片");
+    assert.equal(ok.length, 1);
+    assert.throws(() => normalizeProofPhotos([], "装车照片"));
+    assert.throws(() => normalizeProofPhotos(["not-an-image"], "卸车完成照片"));
+  });
+
+  it("详情字段可解析 JSON 数组", () => {
+    assert.deepEqual(parseProofPhotos('["a","b"]'), ["a", "b"]);
+    assert.deepEqual(parseProofPhotos(null), []);
   });
 });
 

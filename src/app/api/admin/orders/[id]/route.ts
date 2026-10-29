@@ -106,7 +106,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
         where: { id: order.id },
         data: {
           status: OrderStatus.MATCHED,
-          trackShareOn: true,
+          trackShareOn: false,
           matchedDriverId: driverId,
           dealPriceVnd: priceVnd,
           platformFeeVnd,
@@ -195,7 +195,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       where: { id: order.id },
       data: {
         status: OrderStatus.MATCHED,
-        trackShareOn: true,
+        trackShareOn: false,
         matchedDriverId: driverId,
         dealPriceVnd: bid.priceVnd,
         platformFeeVnd,
@@ -230,7 +230,8 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       where: { id: order.id },
       data: {
         status: toStatus,
-        trackShareOn: shareOnForStatus(toStatus),
+        // 管理端改状态不自动开轨迹；不可上报状态则关闭
+        trackShareOn: shareOnForStatus(toStatus) ? order.trackShareOn : false,
         adminNote: body.adminNote ? String(body.adminNote) : order.adminNote,
         notifyNote: body.notifyNote ? String(body.notifyNote) : order.notifyNote,
         statusLogs: {

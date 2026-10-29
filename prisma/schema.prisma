@@ -232,6 +232,10 @@ model Order {
   notifyNote        String?
   trackShareOn      Boolean     @default(false)
   driverStage       String?
+  /// JSON string[] — 司机「已提货」装车照片（data URL 或 http）
+  pickupPhotos      String?
+  /// JSON string[] — 司机「已送达」卸车完成照片
+  deliveryPhotos    String?
   routeDistanceKm   Float?
   routeDurationMin  Int?
   routeSource       String?
