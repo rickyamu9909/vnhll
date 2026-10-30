@@ -10,7 +10,7 @@ import { orderColumns } from "@/components/OrderListBits";
 import { QueryFields } from "@/components/QueryFields";
 import { useI18n } from "@/components/I18nProvider";
 import { apiFetch, pathLabel, statusLabel } from "@/lib/client";
-import { ORDER_QUERY_FIELDS, orderMatches, type OrderListRow } from "@/lib/order-view";
+import { orderMatches, orderQueryFields, type OrderListRow } from "@/lib/order-view";
 import { formatVnd } from "@/lib/money";
 
 const PAGE_SIZES = [15, 25, 50, 100, 500];
@@ -18,9 +18,9 @@ const EDITABLE = new Set(["PENDING_REVIEW", "REJECTED", "OPEN", "FAILED"]);
 const CANCELABLE = new Set(["PENDING_REVIEW", "BIDDING", "REJECTED", "OPEN", "PENDING_CONFIRM", "FAILED"]);
 
 const BUCKETS = [
-  { key: "active", label: "进行中" },
-  { key: "todo", label: "待处理" },
-  { key: "history", label: "历史" },
+  { key: "active", labelKey: "tab.active" },
+  { key: "todo", labelKey: "tab.todo" },
+  { key: "history", labelKey: "tab.history" },
 ];
 
 function inBucket(row: OrderListRow, bucket: string) {
@@ -29,12 +29,12 @@ function inBucket(row: OrderListRow, bucket: string) {
   return ["OPEN", "BIDDING", "PENDING_EXECUTION", "IN_TRANSIT", "MATCHED", "LOCKED", "PENDING_AUDIT", "PENDING_REVIEW"].includes(row.status);
 }
 
-function nextAction(row: OrderListRow) {
-  if (row.status === "PENDING_CONFIRM") return "请确认报价";
-  if (row.status === "DELIVERED") return "请确认完成";
-  if (row.status === "OPEN" || row.status === "BIDDING") return "匹配中，可延长或改单";
-  if (row.status === "FAILED" || row.status === "REJECTED") return "可改价重发";
-  if (row.status === "PENDING_EXECUTION" || row.status === "IN_TRANSIT") return "可查看轨迹";
+function nextAction(row: OrderListRow, t: (k: string, f?: string) => string) {
+  if (row.status === "PENDING_CONFIRM") return t("hint.confirm_bid", "请确认报价");
+  if (row.status === "DELIVERED") return t("hint.confirm_done", "请确认完成");
+  if (row.status === "OPEN" || row.status === "BIDDING") return t("hint.matching", "匹配中，可延长或改单");
+  if (row.status === "FAILED" || row.status === "REJECTED") return t("hint.republish", "可改价重发");
+  if (row.status === "PENDING_EXECUTION" || row.status === "IN_TRANSIT") return t("hint.track", "可查看轨迹");
   return "";
 }
 
@@ -51,7 +51,7 @@ export default function OrdersPage() {
     const res = await apiFetch<OrderListRow[]>("/api/orders");
     setLoading(false);
     if (!res.ok) {
-      message.error(res.message || "加载失败");
+      message.error(res.message || t("common.loading_fail", "加载失败"));
       return;
     }
     setRows(res.data || []);
@@ -63,25 +63,26 @@ export default function OrdersPage() {
 
   const cancelOrder = (id: string) => {
     Modal.confirm({
-      title: "确认取消该订单？",
-      okText: "确认取消",
+      title: t("order.cancel_title", "确认取消该订单？"),
+      okText: t("order.cancel_ok", "确认取消"),
       okButtonProps: { danger: true },
+      cancelText: t("action.cancel", "取消"),
       onOk: async () => {
         const res = await apiFetch(`/api/orders/${id}`, {
           method: "POST",
           body: JSON.stringify({ action: "cancel" }),
         });
         if (!res.ok) {
-          message.error(res.message || "取消失败");
+          message.error(res.message || t("common.op_fail", "操作失败"));
           return;
         }
-        message.success("订单已取消");
+        message.success(t("order.cancelled", "订单已取消"));
         load();
       },
     });
   };
 
-  const shown = useMemo(() => rows.filter((row) => inBucket(row, tab) && orderMatches(row, query)), [rows, tab, query]);
+  const shown = useMemo(() => rows.filter((row) => inBucket(row, tab) && orderMatches(row, query, t)), [rows, tab, query, t]);
 
   return (
     <CustomerShell selected="orders">
@@ -105,36 +106,36 @@ export default function OrdersPage() {
               {(row.originAddress || row.pickupAddress || "-") + " → " + (row.destAddress || row.deliveryAddress || "-")}
             </div>
             <div style={{ color: "#64748b", fontSize: 12, marginTop: 4 }}>
-              {pathLabel(row.matchPath)}
+              {pathLabel(row.matchPath, t)}
               {row.pickupAt ? ` · ${dayjs(row.pickupAt).format("MM-DD HH:mm")}` : ""}
               {` · ${formatVnd(row.dealPriceVnd || row.targetPriceVnd || row.customerBidVnd || "")}`}
             </div>
-            {nextAction(row) ? <div style={{ marginTop: 6, color: "#b45309", fontSize: 13 }}>{nextAction(row)}</div> : null}
+            {nextAction(row, t) ? <div style={{ marginTop: 6, color: "#b45309", fontSize: 13 }}>{nextAction(row, t)}</div> : null}
             <Space wrap style={{ marginTop: 10 }}>
               <ActionButton href={`/orders/${row.id}`} tone="primary">
-                详情
+                {t("action.detail", "详情")}
               </ActionButton>
               {["FAILED", "REJECTED"].includes(row.status) ? (
                 <ActionButton href={`/orders/new?from=${row.id}`} tone="orange">
-                  改价重发
+                  {t("order.republish", "改价重发")}
                 </ActionButton>
               ) : null}
               <ActionButton href={`/orders/${row.id}/track`} tone="cyan">
-                轨迹
+                {t("action.track", "轨迹")}
               </ActionButton>
             </Space>
           </Card>
         ))}
       </Space>
       <Card style={{ marginTop: 12 }}>
-        <Tabs activeKey={tab} onChange={setTab} items={BUCKETS.map((item) => ({ key: item.key, label: item.label }))} />
+        <Tabs activeKey={tab} onChange={setTab} items={BUCKETS.map((item) => ({ key: item.key, label: t(item.labelKey) }))} />
         <Collapse
           ghost
           items={[
             {
               key: "advanced",
-              label: "高级查询",
-              children: <QueryFields fields={ORDER_QUERY_FIELDS} onSearch={setQuery} />,
+              label: t("common.advanced", "高级查询"),
+              children: <QueryFields fields={orderQueryFields(t)} onSearch={setQuery} />,
             },
           ]}
         />
@@ -148,11 +149,11 @@ export default function OrdersPage() {
             pageSize,
             showSizeChanger: true,
             pageSizeOptions: PAGE_SIZES.map(String),
-            showTotal: (total) => `共 ${total} 条`,
+            showTotal: (total) => t("common.total", "共 {n} 条").replace("{n}", String(total)),
             onShowSizeChange: (_p, size) => setPageSize(size),
           }}
           columns={orderColumns(t, {
-            title: "操作",
+            title: t("order.op", "操作"),
             width: 280,
             fixed: "right",
             render: (_, r) => {
@@ -161,30 +162,30 @@ export default function OrdersPage() {
               return (
                 <Space size={6} wrap>
                   <ActionButton href={`/orders/${r.id}`} tone="primary">
-                    详情
+                    {t("action.detail", "详情")}
                   </ActionButton>
                   <ActionButton href={`/orders/${r.id}/track`} tone="cyan">
-                    轨迹
+                    {t("action.track", "轨迹")}
                   </ActionButton>
                   {["FAILED", "REJECTED"].includes(r.status) ? (
                     <ActionButton href={`/orders/new?from=${r.id}`} tone="orange">
-                      改价重发
+                      {t("order.republish", "改价重发")}
                     </ActionButton>
                   ) : null}
                   {canEdit ? (
                     <ActionButton href={`/orders/${r.id}/edit`} tone="default">
-                      修改
+                      {t("action.edit", "修改")}
                     </ActionButton>
                   ) : (
-                    <Tooltip title="当前状态不可修改">
+                    <Tooltip title={t("hint.no_edit", "当前状态不可修改")}>
                       <Button size="small" disabled>
-                        修改
+                        {t("action.edit", "修改")}
                       </Button>
                     </Tooltip>
                   )}
                   {canCancel ? (
                     <ActionButton tone="danger" onClick={() => cancelOrder(r.id)}>
-                      取消
+                      {t("action.cancel", "取消")}
                     </ActionButton>
                   ) : null}
                 </Space>

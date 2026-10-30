@@ -93,7 +93,7 @@ function OrderDetailInner() {
       message.error(res.message || "操作失败");
       return;
     }
-    message.success("已确认完成");
+    message.success(t("order.complete_ok", "已确认完成"));
     load();
   };
 
@@ -151,12 +151,12 @@ function OrderDetailInner() {
           size="small"
           current={STEP_MAP[order.status] ?? 0}
           items={[
-            { title: "发布" },
-            { title: "匹配中" },
-            { title: "待执行" },
-            { title: "运输中" },
-            { title: "已送达" },
-            { title: "已完成" },
+            { title: t("nav.new_order", "发布") },
+            { title: t("tab.matching", "匹配中") },
+            { title: t("status.PENDING_EXECUTION", "待执行") },
+            { title: t("tab.transit", "运输中") },
+            { title: t("tab.delivered", "已送达") },
+            { title: t("tab.done", "已完成") },
           ]}
         />
         {order.suggestCount != null ? (
@@ -177,7 +177,7 @@ function OrderDetailInner() {
         extra={
           <Space wrap>
             <ActionButton href={`/orders/new?from=${id}`} tone="orange">
-              复制新建
+              {t("action.copy", "复制新建")}
             </ActionButton>
             {["PENDING_REVIEW", "REJECTED", "OPEN", "FAILED"].includes(order.status) ? (
               <ActionButton href={`/orders/${id}/edit`} tone="default">
@@ -204,7 +204,7 @@ function OrderDetailInner() {
                   }
                 }}
               >
-                延长有效期
+                {t("order.extend", "延长有效期")}
               </ActionButton>
             )}
             {order.status === "PENDING_CONFIRM" && (
@@ -212,14 +212,14 @@ function OrderDetailInner() {
                 tone="danger"
                 onClick={async () => {
                   const res = await apiFetch(`/api/orders/${id}`, { method: "POST", body: JSON.stringify({ action: "reject_all" }) });
-                  if (!res.ok) message.error(res.message || "操作失败");
+                  if (!res.ok) message.error(res.message || t("common.op_fail", "操作失败"));
                   else {
-                    message.success("已拒绝并重新发布");
+                    message.success(t("order.reject_all", "拒绝全部报价"));
                     load();
                   }
                 }}
               >
-                拒绝全部报价
+                {t("order.reject_all", "拒绝全部报价")}
               </ActionButton>
             )}
             {order.status === "DELIVERED" && (
@@ -234,19 +234,25 @@ function OrderDetailInner() {
           <Descriptions.Item label={t("order.status", "状态")}>
             <Tag>{statusLabel(order.status, t)}</Tag>
           </Descriptions.Item>
-          <Descriptions.Item label="匹配路径">
-            {order.matchPath === "A" ? "出价接单" : order.matchPath === "B" ? "询价报价" : order.matchPath === "C" ? "运力匹配（选择司机已发布的空车运力）" : order.matchPath || "-"}
+          <Descriptions.Item label={t("order.match_path", "匹配路径")}>
+            {order.matchPath === "A"
+              ? t("order.path_a", "出价接单")
+              : order.matchPath === "B"
+                ? t("order.path_b", "询价报价")
+                : order.matchPath === "C"
+                  ? t("order.path_c_hint", "运力匹配（选择司机已发布的空车运力）")
+                  : order.matchPath || "-"}
           </Descriptions.Item>
           <Descriptions.Item label={t("order.customer_bid", "您的出价")}>
-            {order.targetPriceVnd || order.customerBidVnd ? `${formatVnd(order.targetPriceVnd || order.customerBidVnd)} VND` : "未出价（询价）"}
+            {order.targetPriceVnd || order.customerBidVnd ? `${formatVnd(order.targetPriceVnd || order.customerBidVnd)} VND` : t("order.no_bid", "未出价（询价）")}
           </Descriptions.Item>
           {order.dealPriceVnd ? (
-            <Descriptions.Item label="成交价">{formatVnd(order.dealPriceVnd)} VND</Descriptions.Item>
+            <Descriptions.Item label={t("order.deal", "成交价")}>{formatVnd(order.dealPriceVnd)} VND</Descriptions.Item>
           ) : null}
           {order.driverName ? (
             <>
-              <Descriptions.Item label="司机姓名">{order.driverName}</Descriptions.Item>
-              <Descriptions.Item label="车牌号">{order.plateNumber || "-"}</Descriptions.Item>
+              <Descriptions.Item label={t("order.driver_name", "司机姓名")}>{order.driverName}</Descriptions.Item>
+              <Descriptions.Item label={t("order.plate", "车牌号")}>{order.plateNumber || "-"}</Descriptions.Item>
             </>
           ) : null}
           <Descriptions.Item label={t("order.pickup_at", "预约接货时间")}>
@@ -263,7 +269,7 @@ function OrderDetailInner() {
             {order.cargoName} · {order.cargoWeightKg}kg · {order.cargoVolumeM3}m³ · {vehicleLabel(order.vehicleType, t)}
           </Descriptions.Item>
           {order.rejectReason ? (
-            <Descriptions.Item label="拒绝原因">
+            <Descriptions.Item label={t("order.reject_reason", "拒绝原因")}>
               <Typography.Text type="danger">{order.rejectReason}</Typography.Text>
             </Descriptions.Item>
           ) : null}
@@ -276,10 +282,10 @@ function OrderDetailInner() {
             pagination={false}
             dataSource={order.carrierBids}
             columns={[
-              { title: "报价方", dataIndex: "bidderName" },
-              { title: "报价 VND", dataIndex: "priceVnd", render: (v) => formatVnd(v) },
+              { title: t("order.bidder", "报价方"), dataIndex: "bidderName" },
+              { title: t("order.bid_vnd", "报价 VND"), dataIndex: "priceVnd", render: (v) => formatVnd(v) },
               {
-                title: "操作",
+                title: t("order.op", "操作"),
                 render: (_, row) =>
                   ["PENDING_CONFIRM", "BIDDING", "OPEN"].includes(order.status) ? (
                     <ActionButton
@@ -289,14 +295,14 @@ function OrderDetailInner() {
                           method: "POST",
                           body: JSON.stringify({ action: "confirm_bid", bidId: row.id }),
                         });
-                        if (!res.ok) message.error(res.message || "确认失败");
+                        if (!res.ok) message.error(res.message || t("order.bid_fail", "确认失败"));
                         else {
-                          message.success("已确认，订单进入待执行");
+                          message.success(t("order.bid_ok", "已确认，订单进入待执行"));
                           load();
                         }
                       }}
                     >
-                      同意该报价
+                      {t("order.accept_bid", "同意该报价")}
                     </ActionButton>
                   ) : null,
               },

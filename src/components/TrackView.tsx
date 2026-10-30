@@ -92,22 +92,20 @@ function loadLeaflet() {
   });
 }
 
-function placeIconHtml(kind: "fa" | "shou", label: string) {
+function placeIconHtml(kind: "fa" | "shou", label: string, word: string) {
   const bg = kind === "fa" ? "#52c41a" : "#237804";
-  const word = kind === "fa" ? "发" : "收";
   return `<div style="display:flex;align-items:center;gap:4px;transform:translate(-8px,-28px)">
     <div style="width:28px;height:28px;border-radius:50%;background:${bg};color:#fff;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.25)">${word}</div>
     <div style="background:#fff;border-radius:14px;padding:4px 10px;font-size:12px;color:#262626;box-shadow:0 2px 8px rgba(0,0,0,.15);white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis">${label}</div>
   </div>`;
 }
 
-function truckIconHtml(statusText: string, destHint: string) {
-  const line1 = statusText || "运输中";
-  const line2 = destHint ? `正在发往${destHint}` : "";
+function truckIconHtml(statusText: string, destLine: string) {
+  const line1 = statusText || "…";
   return `<div style="position:relative;transform:translate(-40px,-70px);width:120px;text-align:center">
     <div style="display:inline-block;background:#52c41a;color:#fff;border-radius:8px;padding:6px 10px;font-size:12px;line-height:1.35;box-shadow:0 4px 12px rgba(82,196,26,.45);max-width:160px;text-align:left">
       <div style="font-weight:600">${line1}</div>
-      ${line2 ? `<div style="opacity:.95;margin-top:2px">${line2}</div>` : ""}
+      ${destLine ? `<div style="opacity:.95;margin-top:2px">${destLine}</div>` : ""}
     </div>
     <div style="width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-top:8px solid #52c41a;margin:0 auto"></div>
     <div style="font-size:34px;line-height:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))">🚚</div>
@@ -176,10 +174,10 @@ export function TrackView({ apiUrl, backHref }: { apiUrl: string; backHref: stri
           if (nav) {
             L.polyline(nav, { color: "#52c41a", weight: 5, opacity: 0.9 }).addTo(map);
             boundsPts.push(...nav);
-            setNavHint("已按道路导航绘制路线");
+            setNavHint(t("track.nav_ok", "已按道路导航绘制路线"));
           } else if (origin && dest) {
             // 禁止用跨海直线冒充导航；提示用户
-            setNavHint("导航路线暂不可用，仅显示起讫点与车辆位置（未画直线）");
+            setNavHint(t("track.nav_fail", "导航路线暂不可用，仅显示起讫点与车辆位置（未画直线）"));
             boundsPts.push([origin.lat, origin.lng], [dest.lat, dest.lng]);
           } else {
             setNavHint("");
@@ -187,12 +185,22 @@ export function TrackView({ apiUrl, backHref }: { apiUrl: string; backHref: stri
 
           if (origin) {
             L.marker([origin.lat, origin.lng], {
-              icon: L.divIcon({ className: "", html: placeIconHtml("fa", originName), iconSize: [120, 36], iconAnchor: [14, 28] }),
+              icon: L.divIcon({
+                className: "",
+                html: placeIconHtml("fa", originName, t("track.fa", "发")),
+                iconSize: [120, 36],
+                iconAnchor: [14, 28],
+              }),
             }).addTo(map);
           }
           if (dest) {
             L.marker([dest.lat, dest.lng], {
-              icon: L.divIcon({ className: "", html: placeIconHtml("shou", destName), iconSize: [120, 36], iconAnchor: [14, 28] }),
+              icon: L.divIcon({
+                className: "",
+                html: placeIconHtml("shou", destName, t("track.shou", "收")),
+                iconSize: [120, 36],
+                iconAnchor: [14, 28],
+              }),
             }).addTo(map);
           }
 
@@ -216,9 +224,10 @@ export function TrackView({ apiUrl, backHref }: { apiUrl: string; backHref: stri
 
         const vehicle = data.latest || (points.length ? points[points.length - 1] : null);
         if (vehicle) {
+          const destLine = destName ? t("track.to_dest", "正在发往{dest}").replace("{dest}", destName) : "";
           const icon = L.divIcon({
             className: "",
-            html: truckIconHtml(vehicle.statusText, destName),
+            html: truckIconHtml(vehicle.statusText || t("track.moving", "运输中"), destLine),
             iconSize: [120, 90],
             iconAnchor: [40, 70],
           });
@@ -249,9 +258,9 @@ export function TrackView({ apiUrl, backHref }: { apiUrl: string; backHref: stri
 
   const freshKey = data ? FRESH[data.freshness] : "track.off";
   const freshFallback: Record<TrackData["freshness"], string> = {
-    live: "上报中",
-    off: "未开启（需司机点前往提货）",
-    ended: "已结束",
+    live: t("track.live", "上报中"),
+    off: t("track.off_hint", "未开启（需司机点前往提货）"),
+    ended: t("track.ended", "已结束"),
   };
 
   return (

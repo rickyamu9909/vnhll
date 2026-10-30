@@ -77,8 +77,16 @@ export function I18nProvider({ children, initialLocale = "zh" }: { children: Rea
       reload,
       t: (key: string, fallback?: string) => {
         const packed = dict[key];
-        const local = UI_TEXT[locale][key];
-        if (locale === "vi" && local && (!packed || packed === UI_TEXT.zh[key] || /[\u4e00-\u9fff]/.test(packed))) return local;
+        const local = UI_TEXT[locale]?.[key];
+        const zhPacked = UI_TEXT.zh[key];
+        const hasHan = (s?: string) => !!s && /[\u4e00-\u9fff]/.test(s);
+        // 越南语：禁止把中文库/中文 fallback 漏到界面
+        if (locale === "vi") {
+          if (local) return local;
+          if (packed && !hasHan(packed) && packed !== zhPacked) return packed;
+          if (fallback && !hasHan(fallback)) return fallback;
+          return local || key;
+        }
         return packed || local || fallback || key;
       },
     }),

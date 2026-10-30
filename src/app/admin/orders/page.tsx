@@ -164,7 +164,7 @@ export default function AdminOrdersPage() {
         </Form>
       </Card>
       <Card size="small">
-        <Tabs activeKey={tab} onChange={setTab} items={CUSTOMER_NODE_TABS.map((item) => ({ key: item.key, label: item.label }))} />
+        <Tabs activeKey={tab} onChange={setTab} items={CUSTOMER_NODE_TABS.map((item) => ({ key: item.key, label: t(item.labelKey) }))} />
         <Table
           size="small"
           rowKey="id"

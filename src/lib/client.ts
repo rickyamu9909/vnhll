@@ -35,9 +35,14 @@ export function statusLabel(status: string, t: (k: string, f?: string) => string
   return t(`status.${status}`, STATUS_ZH[status] || status);
 }
 
-export function pathLabel(path?: string | null) {
-  if (path === "A") return "出价接单";
-  if (path === "B") return "询价报价";
-  if (path === "C") return "运力匹配";
-  return path || "-";
+export function pathLabel(path?: string | null, t?: (k: string, f?: string) => string) {
+  const map: Record<string, [string, string]> = {
+    A: ["order.path_a", "出价接单"],
+    B: ["order.path_b", "询价报价"],
+    C: ["order.path_c", "运力匹配"],
+  };
+  if (!path) return "-";
+  const hit = map[path];
+  if (!hit) return path;
+  return t ? t(hit[0], hit[1]) : hit[1];
 }

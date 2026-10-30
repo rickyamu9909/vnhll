@@ -1,14 +1,16 @@
 "use client";
 
 import { Image, Space, Typography } from "antd";
+import { useI18n } from "@/components/I18nProvider";
 import { parseProofPhotos } from "@/lib/proof-photos";
 
-function PhotoRow({ title, photos }: { title: string; photos: string[] }) {
+function PhotoRow({ title, photos, tip }: { title: string; photos: string[]; tip: string }) {
   if (!photos.length) return null;
   return (
     <div style={{ marginBottom: 12 }}>
       <Typography.Text type="secondary" style={{ display: "block", marginBottom: 8 }}>
-        {title}（点击可放大）· 共 {photos.length} 张
+        {title}
+        {tip}
       </Typography.Text>
       <Image.PreviewGroup>
         <Space wrap size={8}>
@@ -36,16 +38,25 @@ export function OrderProofPhotos({
   pickupPhotos?: string | string[] | null;
   deliveryPhotos?: string | string[] | null;
 }) {
+  const { t } = useI18n();
   const pickup = parseProofPhotos(pickupPhotos);
   const delivery = parseProofPhotos(deliveryPhotos);
   if (!pickup.length && !delivery.length) return null;
   return (
     <div style={{ marginTop: 16 }}>
       <Typography.Title level={5} style={{ marginTop: 0, marginBottom: 12 }}>
-        履约照片
+        {t("order.proof", "履约照片")}
       </Typography.Title>
-      <PhotoRow title="装车照片" photos={pickup} />
-      <PhotoRow title="卸车完成照片" photos={delivery} />
+      <PhotoRow
+        title={t("order.proof_pickup", "装车照片")}
+        tip={t("order.proof_click", "（点击可放大）· 共 {n} 张").replace("{n}", String(pickup.length))}
+        photos={pickup}
+      />
+      <PhotoRow
+        title={t("order.proof_delivery", "卸车完成照片")}
+        tip={t("order.proof_click", "（点击可放大）· 共 {n} 张").replace("{n}", String(delivery.length))}
+        photos={delivery}
+      />
     </div>
   );
 }

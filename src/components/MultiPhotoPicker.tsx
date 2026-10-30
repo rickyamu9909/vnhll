@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Upload, message } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
 import type { UploadFile } from "antd/es/upload/interface";
+import { useI18n } from "@/components/I18nProvider";
 
 async function compressImage(file: File) {
   const bitmap = await createImageBitmap(file);
@@ -46,6 +47,7 @@ export function MultiPhotoPicker({
   onChange?: (value: string[]) => void;
   maxCount?: number;
 }) {
+  const { t } = useI18n();
   const [busy, setBusy] = useState(false);
   const fileList = toFileList(value);
 
@@ -63,11 +65,11 @@ export function MultiPhotoPicker({
       }}
       beforeUpload={async (file) => {
         if (!file.type.startsWith("image/")) {
-          message.error("请选择图片文件");
+          message.error(t("upload.need_image", "请选择图片文件"));
           return false;
         }
         if (value.length >= maxCount) {
-          message.warning(`最多上传 ${maxCount} 张`);
+          message.warning(t("upload.max", "最多上传 {n} 张").replace("{n}", String(maxCount)));
           return false;
         }
         setBusy(true);
@@ -75,7 +77,7 @@ export function MultiPhotoPicker({
           const data = await compressImage(file);
           onChange?.([...value, data].slice(0, maxCount));
         } catch {
-          message.error("图片处理失败");
+          message.error(t("upload.fail", "图片处理失败"));
         } finally {
           setBusy(false);
         }
@@ -85,7 +87,7 @@ export function MultiPhotoPicker({
       {value.length >= maxCount ? null : (
         <div>
           <PlusOutlined />
-          <div style={{ marginTop: 4, fontSize: 12 }}>{busy ? "处理中" : "上传"}</div>
+          <div style={{ marginTop: 4, fontSize: 12 }}>{busy ? t("upload.busy", "处理中") : t("upload.pick", "上传")}</div>
         </div>
       )}
     </Upload>

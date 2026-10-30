@@ -25,31 +25,31 @@ export type OrderListRow = {
 };
 
 export const CUSTOMER_NODE_TABS = [
-  { key: "all", label: "全部" },
-  { key: "matching", label: "匹配中" },
-  { key: "confirm", label: "待确认报价" },
-  { key: "pickup", label: "待接货" },
-  { key: "transit", label: "运输中" },
-  { key: "delivered", label: "已送达" },
-  { key: "done", label: "已完成" },
-  { key: "closed", label: "已取消" },
+  { key: "all", labelKey: "tab.all" },
+  { key: "matching", labelKey: "tab.matching" },
+  { key: "confirm", labelKey: "tab.confirm" },
+  { key: "pickup", labelKey: "tab.pickup" },
+  { key: "transit", labelKey: "tab.transit" },
+  { key: "delivered", labelKey: "tab.delivered" },
+  { key: "done", labelKey: "tab.done" },
+  { key: "closed", labelKey: "tab.closed" },
 ];
 
 export const DRIVER_NODE_TABS = [
-  { key: "all", label: "全部" },
-  { key: "quoted", label: "已报价" },
-  { key: "pickup", label: "待接货" },
-  { key: "transit", label: "运输中" },
-  { key: "delivered", label: "已送达" },
-  { key: "done", label: "已完成" },
-  { key: "closed", label: "已取消" },
+  { key: "all", labelKey: "tab.all" },
+  { key: "quoted", labelKey: "tab.quoted" },
+  { key: "pickup", labelKey: "tab.pickup" },
+  { key: "transit", labelKey: "tab.transit" },
+  { key: "delivered", labelKey: "tab.delivered" },
+  { key: "done", labelKey: "tab.done" },
+  { key: "closed", labelKey: "tab.closed" },
 ];
 
 export const TASK_NODE_TABS = [
-  { key: "all", label: "全部" },
-  { key: "pickup", label: "待接货" },
-  { key: "transit", label: "运输中" },
-  { key: "delivered", label: "已送达" },
+  { key: "all", labelKey: "tab.all" },
+  { key: "pickup", labelKey: "tab.pickup" },
+  { key: "transit", labelKey: "tab.transit" },
+  { key: "delivered", labelKey: "tab.delivered" },
 ];
 
 const TAB_STATUS: Record<string, string[]> = {
@@ -62,10 +62,6 @@ const TAB_STATUS: Record<string, string[]> = {
   closed: ["CANCELLED", "FAILED", "REJECTED"],
 };
 
-export function zhStatus(status: string) {
-  return statusLabel(status, (_key, fallback) => fallback || "");
-}
-
 export function orderInTab(row: OrderListRow, tab: string) {
   if (!tab || tab === "all") return true;
   if (tab === "quoted") {
@@ -75,8 +71,8 @@ export function orderInTab(row: OrderListRow, tab: string) {
 }
 
 export function displayStatus(row: OrderListRow, t: (key: string, fallback?: string) => string) {
-  if (row.myBidPriceVnd && ["OPEN", "LOCKED", "PENDING_AUDIT"].includes(row.status)) return "已报价";
-  if (row.myBidPriceVnd && row.status === "PENDING_CONFIRM") return "已报价 · 待客户确认";
+  if (row.myBidPriceVnd && ["OPEN", "LOCKED", "PENDING_AUDIT"].includes(row.status)) return t("order.quoted", "已报价");
+  if (row.myBidPriceVnd && row.status === "PENDING_CONFIRM") return t("order.quoted_wait", "已报价 · 待客户确认");
   return statusLabel(row.status, t);
 }
 
@@ -86,15 +82,16 @@ export function includesText(value: unknown, query?: string) {
   return String(value ?? "").toLowerCase().includes(text);
 }
 
-export function orderMatches(row: OrderListRow, query: Record<string, string>) {
+export function orderMatches(row: OrderListRow, query: Record<string, string>, t?: (key: string, fallback?: string) => string) {
+  const translate = t || ((key: string, fallback?: string) => fallback || key);
   const origin = [row.originAddress, row.pickupAddress, row.pickupContact].filter(Boolean).join(" ");
   const dest = [row.destAddress, row.deliveryAddress, row.deliveryContact].filter(Boolean).join(" ");
   const phone = [row.pickupPhone, row.deliveryPhone].filter(Boolean).join(" ");
   const price = [row.targetPriceVnd, row.customerBidVnd, row.dealPriceVnd, row.myBidPriceVnd].filter(Boolean).join(" ");
   return (
     includesText(row.orderNo, query.q) &&
-    includesText(`${row.status} ${zhStatus(row.status)} ${displayStatus(row, (_key, fallback) => fallback || "")}`, query.status) &&
-    includesText(`${row.matchPath || ""} ${pathLabel(row.matchPath)}`, query.path) &&
+    includesText(`${row.status} ${statusLabel(row.status, translate)} ${displayStatus(row, translate)}`, query.status) &&
+    includesText(`${row.matchPath || ""} ${pathLabel(row.matchPath, translate)}`, query.path) &&
     includesText(origin, query.origin) &&
     includesText(dest, query.dest) &&
     includesText(phone, query.phone) &&
@@ -105,6 +102,22 @@ export function orderMatches(row: OrderListRow, query: Record<string, string>) {
   );
 }
 
+export function orderQueryFields(t: (key: string, fallback?: string) => string) {
+  return [
+    { name: "q", placeholder: t("order.order_no", "订单号") },
+    { name: "status", placeholder: t("order.status", "状态") },
+    { name: "path", placeholder: t("order.path", "路径") },
+    { name: "origin", placeholder: t("order.origin", "起运地") },
+    { name: "dest", placeholder: t("order.dest", "目的地") },
+    { name: "phone", placeholder: t("order.phone_q", "电话") },
+    { name: "cargo", placeholder: t("order.cargo_q", "货物") },
+    { name: "vehicle", placeholder: t("form.vehicle", "车型"), width: 110 },
+    { name: "date", placeholder: t("form.pickup_at", "接货时间"), width: 120 },
+    { name: "price", placeholder: t("order.price", "价格"), width: 110 },
+  ];
+}
+
+/** @deprecated 使用 orderQueryFields(t) */
 export const ORDER_QUERY_FIELDS = [
   { name: "q", placeholder: "订单号" },
   { name: "status", placeholder: "状态" },

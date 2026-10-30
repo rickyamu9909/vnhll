@@ -8,12 +8,9 @@ export const DRIVER_STAGES = [
 
 export const DRIVER_ISSUE = { key: "issue", label: "车辆异常" };
 
-const LEGACY_STAGE_LABELS: Record<string, string> = {
-  wait_pickup: "待接货",
-};
-
-export function stageLabel(key?: string | null) {
+export function stageLabel(key?: string | null, t?: (k: string, f?: string) => string) {
   if (!key) return "";
+  if (t) return t(`stage.${key}`, key === DRIVER_ISSUE.key ? DRIVER_ISSUE.label : DRIVER_STAGES.find((s) => s.key === key)?.label || key);
   if (key === DRIVER_ISSUE.key) return DRIVER_ISSUE.label;
-  return DRIVER_STAGES.find((stage) => stage.key === key)?.label || LEGACY_STAGE_LABELS[key] || "";
+  return DRIVER_STAGES.find((stage) => stage.key === key)?.label || (key === "wait_pickup" ? "待接货" : "");
 }
