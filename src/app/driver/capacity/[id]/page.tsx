@@ -55,7 +55,7 @@ export default function CapacityDetailPage() {
             <Descriptions.Item label={t("cap.location", "空车位置")}>{row.location}</Descriptions.Item>
             <Descriptions.Item label={t("cap.dest_pref", "目的偏好")}>{row.destPreference || "-"}</Descriptions.Item>
             <Descriptions.Item label={t("cap.available", "可接时间")}>
-              {dayjs(row.availableFrom).format("YYYY-MM-DD HH:mm")} {t("cap.to", "至")} {dayjs(row.availableTo).format("YYYY-MM-DD HH:mm")}
+              {dayjs(row.availableFrom).format("YYYY-MM-DD HH:mm")} {t("cap.until", "至")} {dayjs(row.availableTo).format("YYYY-MM-DD HH:mm")}
             </Descriptions.Item>
             <Descriptions.Item label={t("form.vehicle", "车型")}>{vehicleLabel(row.vehicleType, t)}</Descriptions.Item>
             <Descriptions.Item label={t("form.load_tons", "载重")}>

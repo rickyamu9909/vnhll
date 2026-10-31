@@ -142,7 +142,7 @@ export default function CapacityListPage() {
                           else load();
                         }}
                       >
-                        {t("action.accept", "接受")}
+                        {t("action.accept_yes", "接受")}
                       </ActionButton>
                       <ActionButton
                         tone="danger"
