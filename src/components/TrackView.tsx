@@ -325,7 +325,7 @@ export function TrackView({ apiUrl, backHref }: { apiUrl: string; backHref: stri
           else map.setView([10.77, 106.7], 11);
 
           const gpsFar = !!rawVehicle && !inVietnam(rawVehicle);
-          if (gpsFar) setNavHint(t("track.gps_warn", "车辆上报坐标远离订单起讫点，已按历史上报轨迹局部展示（请检查司机定位）"));
+          if (gpsFar) setNavHint(t("track.gps_warn", "车辆定位不在越南境内，已显示收发货区域导航图（请检查司机端定位）"));
           else if (trailLine && trailLine.length >= 2)
             setNavHint(
               data.historySource === "osrm-match"
