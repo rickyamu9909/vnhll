@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { AutoComplete, Spin } from "antd";
 import { Form } from "antd";
+import { useI18n } from "@/components/I18nProvider";
 import { apiFetch } from "@/lib/client";
 
 type Hit = { label: string; lat: number; lng: number; province?: string; ward?: string; address?: string };
@@ -14,6 +15,7 @@ export function AddressSuggest({
   side: "origin" | "dest";
   placeholder?: string;
 }) {
+  const { t } = useI18n();
   const form = Form.useFormInstance();
   const [options, setOptions] = useState<Array<{ value: string; label: string; hit: Hit }>>([]);
   const [loading, setLoading] = useState(false);
@@ -39,12 +41,12 @@ export function AddressSuggest({
   };
 
   return (
-    <Form.Item name={addressName} label="详细地址">
+    <Form.Item name={addressName} label={t("form.address", "详细地址")}>
       <AutoComplete
         allowClear
         options={options}
         onSearch={search}
-        placeholder={placeholder || "输入街道可联想越南地址"}
+        placeholder={placeholder || t("form.street", "街道、门牌")}
         notFoundContent={loading ? <Spin size="small" /> : null}
         onSelect={(_value, option) => {
           const hit = (option as { hit?: Hit }).hit;

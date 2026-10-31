@@ -42,7 +42,7 @@ export default function HomePage() {
             ANTS
           </Typography.Title>
           <Typography.Paragraph style={{ color: "rgba(255,255,255,0.85)", fontSize: 16, maxWidth: 520 }}>
-            企业散货下单 · 管理端撮合派单 · MVP
+            {t("app.tagline", "企业散货下单 · 管理端撮合派单 · MVP")}
           </Typography.Paragraph>
         </div>
       </div>
@@ -51,7 +51,7 @@ export default function HomePage() {
         <Card title={t("action.login", "登录")}>
           <Form layout="vertical" onFinish={onFinish}>
             <Form.Item name="username" label={t("auth.username", "用户名")} rules={[{ required: true }]}>
-              <Input placeholder="河内快运物流 / admin" />
+              <Input placeholder={t("auth.username", "用户名")} />
             </Form.Item>
             <Form.Item name="password" label={t("auth.password", "密码")} rules={[{ required: true }]}>
               <Input.Password />
@@ -62,8 +62,8 @@ export default function HomePage() {
           </Form>
           <Space style={{ marginTop: 16 }} split="|">
             <Link href="/register">{t("action.register", "注册")}</Link>
-            <Link href="/admin/login">管理端</Link>
-            <Link href="/driver/login">司机端</Link>
+            <Link href="/admin/login">{t("auth.admin_entry", "管理端")}</Link>
+            <Link href="/driver/login">{t("auth.driver_entry", "司机端")}</Link>
           </Space>
         </Card>
       </div>

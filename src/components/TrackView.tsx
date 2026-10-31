@@ -108,14 +108,27 @@ function placeIconHtml(kind: "fa" | "shou", label: string, word: string) {
 
 function truckIconHtml(statusText: string, destLine: string) {
   const line1 = statusText || "…";
-  return `<div style="position:relative;transform:translate(-40px,-70px);width:120px;text-align:center">
-    <div style="display:inline-block;background:#52c41a;color:#fff;border-radius:8px;padding:6px 10px;font-size:12px;line-height:1.35;box-shadow:0 4px 12px rgba(82,196,26,.45);max-width:160px;text-align:left">
-      <div style="font-weight:600">${line1}</div>
-      ${destLine ? `<div style="opacity:.95;margin-top:2px">${destLine}</div>` : ""}
+  // 锚点对准车头底部中心，避免气泡偏移造成「车与轨迹分离」观感
+  return `<div style="position:relative;width:1px;height:1px">
+    <div style="position:absolute;left:50%;bottom:18px;transform:translateX(-50%);width:140px;text-align:center;pointer-events:none">
+      <div style="display:inline-block;background:#52c41a;color:#fff;border-radius:8px;padding:6px 10px;font-size:12px;line-height:1.35;box-shadow:0 4px 12px rgba(82,196,26,.45);max-width:160px;text-align:left">
+        <div style="font-weight:600">${line1}</div>
+        ${destLine ? `<div style="opacity:.95;margin-top:2px">${destLine}</div>` : ""}
+      </div>
+      <div style="width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-top:8px solid #52c41a;margin:0 auto"></div>
     </div>
-    <div style="width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-top:8px solid #52c41a;margin:0 auto"></div>
-    <div style="font-size:34px;line-height:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))">🚚</div>
+    <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-70%);font-size:28px;line-height:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))">🚚</div>
   </div>`;
+}
+
+function kmBetween(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b.lat);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  return 2 * 6371 * Math.asin(Math.min(1, Math.sqrt(h)));
 }
 
 export function TrackView({ apiUrl, backHref }: { apiUrl: string; backHref: string }) {
@@ -182,38 +195,38 @@ export function TrackView({ apiUrl, backHref }: { apiUrl: string; backHref: stri
           }).addTo(map);
           tiles.on("tileerror", () => setTileFailed(true));
 
-          const boundsPts: Array<[number, number]> = [];
-          const nav = data.navPolyline && data.navPolyline.length >= 2 ? data.navPolyline : null;
+          const vehiclePt = data.latest || (points.length ? points[points.length - 1] : null);
+          const trailLine: Array<[number, number]> | null =
+            history && history.length >= 2
+              ? history
+              : points.length >= 2
+                ? points.map((p) => [p.lat, p.lng] as [number, number])
+                : points.length === 1
+                  ? [[points[0].lat, points[0].lng]]
+                  : null;
 
-          // 计划导航线（淡绿虚线）= 起讫道路规划
-          if (nav) {
-            L.polyline(nav, { color: "#95de64", weight: 4, opacity: 0.55, dashArray: "10 8" }).addTo(map);
-            boundsPts.push(...nav);
-          } else if (origin && dest) {
-            boundsPts.push([origin.lat, origin.lng], [dest.lat, dest.lng]);
-          }
-
-          // 历史上报轨迹（深蓝实线）= 真实走过的路
-          const trailLine =
-            history ||
-            (points.length >= 2 ? points.map((p) => [p.lat, p.lng] as [number, number]) : null);
+          // 历史上报轨迹（深蓝实线）— 快递式主视觉
           if (trailLine && trailLine.length >= 2) {
-            L.polyline(trailLine, { color: "#0958d9", weight: 5, opacity: 0.92 }).addTo(map);
-            boundsPts.push(...trailLine);
-            setNavHint(
-              data.historySource === "osrm-match"
-                ? t("track.hist_ok", "已绘制历史上报轨迹（贴路）")
-                : t("track.hist_raw", "已绘制历史上报轨迹")
-            );
-          } else if (nav) {
-            setNavHint(t("track.nav_ok", "已按道路导航绘制路线"));
-          } else if (origin && dest) {
-            setNavHint(t("track.nav_fail", "导航路线暂不可用，仅显示起讫点与车辆位置（未画直线）"));
-          } else {
-            setNavHint("");
+            L.polyline(trailLine, { color: "#0958d9", weight: 5, opacity: 0.95 }).addTo(map);
           }
 
-          if (origin) {
+          // 起讫点：仅当与车辆/轨迹不太远时叠规划线，避免跨海缩成一条线
+          const ref = vehiclePt || (trailLine?.[trailLine.length - 1] ? { lat: trailLine[trailLine.length - 1][0], lng: trailLine[trailLine.length - 1][1] } : null);
+          const nearOrder =
+            !!ref &&
+            ((origin ? kmBetween(ref, origin) < 400 : true) || (dest ? kmBetween(ref, dest) < 400 : true)) &&
+            (origin ? kmBetween(ref, origin) < 800 : true) &&
+            (dest ? kmBetween(ref, dest) < 800 : true);
+          const gpsFar =
+            !!ref &&
+            ((origin && kmBetween(ref, origin) > 400) || (dest && kmBetween(ref, dest) > 400));
+
+          const nav = nearOrder && data.navPolyline && data.navPolyline.length >= 2 ? data.navPolyline : null;
+          if (nav) {
+            L.polyline(nav, { color: "#95de64", weight: 4, opacity: 0.45, dashArray: "10 8" }).addTo(map);
+          }
+
+          if (origin && nearOrder) {
             L.marker([origin.lat, origin.lng], {
               icon: L.divIcon({
                 className: "",
@@ -222,9 +235,8 @@ export function TrackView({ apiUrl, backHref }: { apiUrl: string; backHref: stri
                 iconAnchor: [14, 28],
               }),
             }).addTo(map);
-            boundsPts.push([origin.lat, origin.lng]);
           }
-          if (dest) {
+          if (dest && nearOrder) {
             L.marker([dest.lat, dest.lng], {
               icon: L.divIcon({
                 className: "",
@@ -233,28 +245,48 @@ export function TrackView({ apiUrl, backHref }: { apiUrl: string; backHref: stri
                 iconAnchor: [14, 28],
               }),
             }).addTo(map);
-            boundsPts.push([dest.lat, dest.lng]);
           }
 
-          // 稀疏采样历史点，像快递节点
-          const sampleEvery = Math.max(1, Math.floor(points.length / 12));
+          // 历史节点（不含最新点，最新点由货车表示）
+          const sampleEvery = Math.max(1, Math.floor(Math.max(points.length - 1, 1) / 10));
           const dots: Array<{ remove?: () => void }> = [];
           points.forEach((p, idx) => {
-            if (idx % sampleEvery !== 0 && idx !== points.length - 1) return;
+            if (idx === points.length - 1) return;
+            if (idx % sampleEvery !== 0 && idx !== 0) return;
             const dot = L.circleMarker([p.lat, p.lng], {
-              radius: idx === points.length - 1 ? 6 : 4,
+              radius: 4,
               color: "#0958d9",
               fillColor: "#69b1ff",
-              fillOpacity: 0.9,
+              fillOpacity: 0.95,
               weight: 1,
             }).addTo(map);
             dots.push(dot as unknown as { remove?: () => void });
           });
           overlaysRef.current.dots = dots;
 
-          if (boundsPts.length === 1) map.setView(boundsPts[0], 14);
-          else if (boundsPts.length > 1) map.fitBounds(L.latLngBounds(boundsPts), { padding: [48, 48], maxZoom: 15 });
+          // 视野：优先贴合历史轨迹+当前车，避免起讫点把轨迹挤成点
+          const focusPts: Array<[number, number]> = [];
+          if (trailLine) focusPts.push(...trailLine);
+          if (vehiclePt) focusPts.push([vehiclePt.lat, vehiclePt.lng]);
+          if (nearOrder && origin) focusPts.push([origin.lat, origin.lng]);
+          if (nearOrder && dest) focusPts.push([dest.lat, dest.lng]);
+          if (nearOrder && nav) focusPts.push(...nav);
+
+          if (focusPts.length === 1) map.setView(focusPts[0], 15);
+          else if (focusPts.length > 1) map.fitBounds(L.latLngBounds(focusPts), { padding: [56, 56], maxZoom: 16 });
           else map.setView([10.77, 106.7], 11);
+
+          if (gpsFar) setNavHint(t("track.gps_warn", "车辆上报坐标远离订单起讫点，已按历史上报轨迹局部展示（请检查司机定位）"));
+          else if (trailLine && trailLine.length >= 2)
+            setNavHint(
+              data.historySource === "osrm-match"
+                ? t("track.hist_ok", "已绘制历史上报轨迹（贴路）")
+                : t("track.focus_hist", "已按历史上报轨迹绘制；货车图标为最新位置")
+            );
+          else if (nav) setNavHint(t("track.nav_ok", "已按道路导航绘制路线"));
+          else if (origin && dest) setNavHint(t("track.nav_fail", "导航路线暂不可用，仅显示起讫点与车辆位置（未画直线）"));
+          else setNavHint("");
+
           overlaysRef.current.builtKey = builtKey;
           window.setTimeout(() => map.invalidateSize(), 120);
         }
@@ -267,8 +299,8 @@ export function TrackView({ apiUrl, backHref }: { apiUrl: string; backHref: stri
           const icon = L.divIcon({
             className: "",
             html: truckIconHtml(statusText, destLine),
-            iconSize: [120, 90],
-            iconAnchor: [40, 70],
+            iconSize: [1, 1],
+            iconAnchor: [0, 0],
           });
           if (overlaysRef.current.truck) {
             overlaysRef.current.truck.setLatLng([vehicle.lat, vehicle.lng]);
