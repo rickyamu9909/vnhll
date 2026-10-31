@@ -64,10 +64,10 @@ export function DriverNavMap({ destLat, destLng, destAddress, title, autoStart =
         const L = await loadLeaflet();
         if (cancelled || !ref.current) return;
         map = L.map(ref.current).setView([10.77, 106.7], 12);
-        L.tileLayer("https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}", {
+        L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
           maxZoom: 20,
-          subdomains: ["mt0", "mt1", "mt2", "mt3"],
-          attribution: "Google",
+          subdomains: "abcd",
+          attribution: "&copy; OpenStreetMap &copy; CARTO",
         }).addTo(map);
 
         const dest = destLat != null && destLng != null ? { lat: destLat, lng: destLng } : null;

@@ -131,6 +131,65 @@ function kmBetween(a: { lat: number; lng: number }, b: { lat: number; lng: numbe
   return 2 * 6371 * Math.asin(Math.min(1, Math.sqrt(h)));
 }
 
+/** 业务仅越南：过滤明显境外噪点坐标 */
+function inVietnam(p: { lat: number; lng: number }) {
+  return p.lat >= 8 && p.lat <= 24.5 && p.lng >= 102 && p.lng <= 110.5;
+}
+
+type TileLayerLike = { addTo: (map: LeafletMap) => { on: (name: string, fn: () => void) => void }; remove?: () => void };
+
+function attachBaseTiles(L: LeafletNS, map: LeafletMap, onFail: () => void) {
+  // Google 非官方瓦片常被墙/拒载导致空白；优先 OSM / Carto（越南路网可用）
+  const sources: Array<{ url: string; options: object }> = [
+    {
+      url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+      options: {
+        maxZoom: 20,
+        subdomains: "abcd",
+        attribution: '&copy; OpenStreetMap &copy; CARTO',
+      },
+    },
+    {
+      url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+      options: {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap',
+      },
+    },
+    {
+      url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
+      options: {
+        maxZoom: 19,
+        attribution: "Esri",
+      },
+    },
+  ];
+  let idx = 0;
+  let layer: TileLayerLike | null = null;
+  let errors = 0;
+  const mount = () => {
+    const src = sources[idx];
+    if (!src) {
+      onFail();
+      return;
+    }
+    layer = L.tileLayer(src.url, src.options) as TileLayerLike;
+    layer.addTo(map).on("tileerror", () => {
+      errors += 1;
+      if (errors < 3) return;
+      errors = 0;
+      try {
+        layer?.remove?.();
+      } catch {
+        /* ignore */
+      }
+      idx += 1;
+      mount();
+    });
+  };
+  mount();
+}
+
 export function TrackView({ apiUrl, backHref }: { apiUrl: string; backHref: string }) {
   const { t } = useI18n();
   const [data, setData] = useState<TrackData | null>(null);
@@ -188,45 +247,35 @@ export function TrackView({ apiUrl, backHref }: { apiUrl: string; backHref: stri
           overlaysRef.current = {};
           const map = L.map(mapNode.current, { zoomControl: true, preferCanvas: true });
           mapRef.current = map;
-          const tiles = L.tileLayer("https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}", {
-            maxZoom: 20,
-            subdomains: ["mt0", "mt1", "mt2", "mt3"],
-            attribution: "Google",
-          }).addTo(map);
-          tiles.on("tileerror", () => setTileFailed(true));
+          attachBaseTiles(L, map, () => setTileFailed(true));
 
-          const vehiclePt = data.latest || (points.length ? points[points.length - 1] : null);
+          const rawVehicle = data.latest || (points.length ? points[points.length - 1] : null);
+          const vehicleOk = rawVehicle && inVietnam(rawVehicle) ? rawVehicle : null;
+          const vnPoints = points.filter((p) => inVietnam(p));
+          const vnHistory =
+            history?.filter((ll) => inVietnam({ lat: ll[0], lng: ll[1] })) ||
+            null;
           const trailLine: Array<[number, number]> | null =
-            history && history.length >= 2
-              ? history
-              : points.length >= 2
-                ? points.map((p) => [p.lat, p.lng] as [number, number])
-                : points.length === 1
-                  ? [[points[0].lat, points[0].lng]]
+            vnHistory && vnHistory.length >= 2
+              ? vnHistory
+              : vnPoints.length >= 2
+                ? vnPoints.map((p) => [p.lat, p.lng] as [number, number])
+                : vnPoints.length === 1
+                  ? [[vnPoints[0].lat, vnPoints[0].lng]]
                   : null;
 
-          // 历史上报轨迹（深蓝实线）— 快递式主视觉
+          // 计划导航线（起讫道路）— 越南业务主视野
+          const nav = data.navPolyline && data.navPolyline.length >= 2 ? data.navPolyline : null;
+          if (nav) {
+            L.polyline(nav, { color: "#52c41a", weight: 5, opacity: 0.75 }).addTo(map);
+          }
+
+          // 历史上报轨迹（仅越南境内点）
           if (trailLine && trailLine.length >= 2) {
             L.polyline(trailLine, { color: "#0958d9", weight: 5, opacity: 0.95 }).addTo(map);
           }
 
-          // 起讫点：仅当与车辆/轨迹不太远时叠规划线，避免跨海缩成一条线
-          const ref = vehiclePt || (trailLine?.[trailLine.length - 1] ? { lat: trailLine[trailLine.length - 1][0], lng: trailLine[trailLine.length - 1][1] } : null);
-          const nearOrder =
-            !!ref &&
-            ((origin ? kmBetween(ref, origin) < 400 : true) || (dest ? kmBetween(ref, dest) < 400 : true)) &&
-            (origin ? kmBetween(ref, origin) < 800 : true) &&
-            (dest ? kmBetween(ref, dest) < 800 : true);
-          const gpsFar =
-            !!ref &&
-            ((origin && kmBetween(ref, origin) > 400) || (dest && kmBetween(ref, dest) > 400));
-
-          const nav = nearOrder && data.navPolyline && data.navPolyline.length >= 2 ? data.navPolyline : null;
-          if (nav) {
-            L.polyline(nav, { color: "#95de64", weight: 4, opacity: 0.45, dashArray: "10 8" }).addTo(map);
-          }
-
-          if (origin && nearOrder) {
+          if (origin) {
             L.marker([origin.lat, origin.lng], {
               icon: L.divIcon({
                 className: "",
@@ -236,7 +285,7 @@ export function TrackView({ apiUrl, backHref }: { apiUrl: string; backHref: stri
               }),
             }).addTo(map);
           }
-          if (dest && nearOrder) {
+          if (dest) {
             L.marker([dest.lat, dest.lng], {
               icon: L.divIcon({
                 className: "",
@@ -247,11 +296,10 @@ export function TrackView({ apiUrl, backHref }: { apiUrl: string; backHref: stri
             }).addTo(map);
           }
 
-          // 历史节点（不含最新点，最新点由货车表示）
-          const sampleEvery = Math.max(1, Math.floor(Math.max(points.length - 1, 1) / 10));
+          const sampleEvery = Math.max(1, Math.floor(Math.max(vnPoints.length - 1, 1) / 10));
           const dots: Array<{ remove?: () => void }> = [];
-          points.forEach((p, idx) => {
-            if (idx === points.length - 1) return;
+          vnPoints.forEach((p, idx) => {
+            if (idx === vnPoints.length - 1) return;
             if (idx % sampleEvery !== 0 && idx !== 0) return;
             const dot = L.circleMarker([p.lat, p.lng], {
               radius: 4,
@@ -264,18 +312,19 @@ export function TrackView({ apiUrl, backHref }: { apiUrl: string; backHref: stri
           });
           overlaysRef.current.dots = dots;
 
-          // 视野：优先贴合历史轨迹+当前车，避免起讫点把轨迹挤成点
+          // 视野：收发货区域 +（越南境内）车辆轨迹，类似导航范围
           const focusPts: Array<[number, number]> = [];
+          if (origin) focusPts.push([origin.lat, origin.lng]);
+          if (dest) focusPts.push([dest.lat, dest.lng]);
+          if (nav) focusPts.push(...nav);
           if (trailLine) focusPts.push(...trailLine);
-          if (vehiclePt) focusPts.push([vehiclePt.lat, vehiclePt.lng]);
-          if (nearOrder && origin) focusPts.push([origin.lat, origin.lng]);
-          if (nearOrder && dest) focusPts.push([dest.lat, dest.lng]);
-          if (nearOrder && nav) focusPts.push(...nav);
+          if (vehicleOk) focusPts.push([vehicleOk.lat, vehicleOk.lng]);
 
-          if (focusPts.length === 1) map.setView(focusPts[0], 15);
-          else if (focusPts.length > 1) map.fitBounds(L.latLngBounds(focusPts), { padding: [56, 56], maxZoom: 16 });
+          if (focusPts.length === 1) map.setView(focusPts[0], 14);
+          else if (focusPts.length > 1) map.fitBounds(L.latLngBounds(focusPts), { padding: [48, 48], maxZoom: 15 });
           else map.setView([10.77, 106.7], 11);
 
+          const gpsFar = !!rawVehicle && !inVietnam(rawVehicle);
           if (gpsFar) setNavHint(t("track.gps_warn", "车辆上报坐标远离订单起讫点，已按历史上报轨迹局部展示（请检查司机定位）"));
           else if (trailLine && trailLine.length >= 2)
             setNavHint(
@@ -292,7 +341,8 @@ export function TrackView({ apiUrl, backHref }: { apiUrl: string; backHref: stri
         }
 
         const map = mapRef.current!;
-        const vehicle = data.latest || (points.length ? points[points.length - 1] : null);
+        const rawVehicle = data.latest || (points.length ? points[points.length - 1] : null);
+        const vehicle = rawVehicle && inVietnam(rawVehicle) ? rawVehicle : null;
         if (vehicle) {
           const statusText = localizeStatusText(vehicle.statusText, t);
           const destLine = destName ? t("track.to_dest", "正在发往{dest}").replace("{dest}", destName) : "";
@@ -310,6 +360,9 @@ export function TrackView({ apiUrl, backHref }: { apiUrl: string; backHref: stri
               LeafletNS["marker"]
             >;
           }
+        } else if (overlaysRef.current.truck) {
+          overlaysRef.current.truck.remove();
+          overlaysRef.current.truck = undefined;
         }
         void latestKey;
       } catch {
