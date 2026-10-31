@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Alert, Badge, Space, message } from "antd";
 import { ActionButton } from "@/components/ActionButton";
+import { useI18n } from "@/components/I18nProvider";
 import { apiFetch } from "@/lib/client";
+import { localizeNoticeBody, localizeNoticeTitle } from "@/lib/localize";
 
 type Note = { id: string; title: string; body: string; read: boolean; createdAt: string; link?: string | null };
 
@@ -42,15 +44,13 @@ function parseLink(note: Note, fallbackHref: string) {
   if (note.link) return note.link;
   const meta = parseMeta(note.body);
   if (meta.href) return meta.href;
-  const match = note.body.match(/ANTS-\d{8}-\d+/);
-  if (!match) return fallbackHref;
   if (typeof window !== "undefined" && window.location.pathname.startsWith("/driver")) {
     return note.title.includes("撮合") || note.title.includes("顺路") || note.title.includes("协商") ? "/driver/capacity" : "/driver/orders";
   }
-  return note.title.includes("报价") ? `/orders` : `/orders`;
+  return "/orders";
 }
 
-async function notifyOnce(note: Note, fallbackHref: string) {
+async function notifyOnce(note: Note, fallbackHref: string, title: string, body: string) {
   if (typeof window === "undefined") return;
   if (isRegNote(note)) return;
   const seen = loadNotified();
@@ -67,7 +67,7 @@ async function notifyOnce(note: Note, fallbackHref: string) {
   }
   if (Notification.permission !== "granted") return;
   try {
-    const n = new Notification(note.title, { body: cleanBody(note.body), tag: note.id });
+    const n = new Notification(title, { body, tag: note.id });
     n.onclick = () => {
       window.focus();
       window.location.href = parseLink(note, fallbackHref);
@@ -86,6 +86,7 @@ export function PendingBanner({
   fallbackHref?: string;
 }) {
   const router = useRouter();
+  const { t } = useI18n();
   const [latest, setLatest] = useState<Note | null>(null);
   const [unread, setUnread] = useState(0);
   const [acting, setActing] = useState(false);
@@ -102,13 +103,17 @@ export function PendingBanner({
     const actionable = fresh.filter((n) => !isRegNote(n));
     setUnread(actionable.length);
     setLatest(actionable[0] || null);
-    if (actionable[0]) void notifyOnce(actionable[0], fallbackHref);
+    if (actionable[0]) {
+      const note = actionable[0];
+      void notifyOnce(note, fallbackHref, localizeNoticeTitle(note.title, t), localizeNoticeBody(cleanBody(note.body), t));
+    }
   };
 
   useEffect(() => {
     load();
     const timer = setInterval(load, 120000);
     return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [api, fallbackHref]);
 
   const markRead = async (ids: string[]) => {
@@ -136,10 +141,10 @@ export function PendingBanner({
     });
     setActing(false);
     if (!res.ok) {
-      message.error(res.message || "处理失败");
+      message.error(res.message || t("suggest.fail", "处理失败"));
       return;
     }
-    message.success(accept ? "已确认撮合" : "已拒绝");
+    message.success(accept ? t("banner.ok_match", "已确认撮合") : t("banner.no_match", "已拒绝"));
     await markRead([latest.id]);
     setLatest(null);
     setUnread((n) => Math.max(0, n - 1));
@@ -158,10 +163,10 @@ export function PendingBanner({
     });
     setActing(false);
     if (!res.ok) {
-      message.error(res.message || "处理失败");
+      message.error(res.message || t("suggest.fail", "处理失败"));
       return;
     }
-    message.success(accept ? "已接受协商，订单进入待执行" : "已拒绝协商");
+    message.success(accept ? t("banner.ok_neg", "已接受协商，订单进入待执行") : t("banner.no_neg", "已拒绝协商"));
     await markRead([latest.id]);
     setLatest(null);
     setUnread((n) => Math.max(0, n - 1));
@@ -174,6 +179,8 @@ export function PendingBanner({
   const meta = parseMeta(latest.body);
   const canSuggest = !!meta.suggestId && (latest.title.includes("撮合") || latest.title.includes("顺路"));
   const canNeg = !!meta.negId && latest.title.includes("协商");
+  const title = localizeNoticeTitle(latest.title, t);
+  const body = localizeNoticeBody(cleanBody(latest.body), t);
 
   return (
     <Alert
@@ -189,35 +196,35 @@ export function PendingBanner({
       message={
         <span>
           <Badge count={unread} size="small" offset={[6, 0]}>
-            <span>待处理</span>
+            <span>{t("banner.pending", "待处理")}</span>
           </Badge>
-          {`：${latest.title}`}
+          {`：${title}`}
         </span>
       }
-      description={cleanBody(latest.body)}
+      description={body}
       action={
         <Space direction="vertical" size={6}>
           {canSuggest ? (
             <>
               <ActionButton tone="primary" loading={acting} onClick={() => respondSuggest(true)}>
-                确认匹配
+                {t("banner.confirm_match", "确认匹配")}
               </ActionButton>
               <ActionButton tone="danger" loading={acting} onClick={() => respondSuggest(false)}>
-                不匹配
+                {t("banner.reject_match", "不匹配")}
               </ActionButton>
             </>
           ) : canNeg ? (
             <>
               <ActionButton tone="primary" loading={acting} onClick={() => respondNeg(true)}>
-                接受协商
+                {t("banner.accept_neg", "接受协商")}
               </ActionButton>
               <ActionButton tone="danger" loading={acting} onClick={() => respondNeg(false)}>
-                拒绝
+                {t("banner.reject_neg", "拒绝")}
               </ActionButton>
             </>
           ) : (
             <ActionButton tone="primary" onClick={markAndOpen}>
-              查看
+              {t("banner.view", "查看")}
             </ActionButton>
           )}
         </Space>

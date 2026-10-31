@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Button, Card, Space, Table, Typography, Upload, message, Input } from "antd";
-import { DownloadOutlined, UploadOutlined } from "@ant-design/icons";
+import { DownloadOutlined, UploadOutlined, SyncOutlined } from "@ant-design/icons";
 import { AdminShell } from "@/components/AdminShell";
 import { useI18n } from "@/components/I18nProvider";
 import { apiFetch } from "@/lib/client";
@@ -13,6 +13,7 @@ export default function AdminI18nPage() {
   const { t, reload } = useI18n();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const [csvText, setCsvText] = useState("");
 
   const load = async () => {
@@ -20,7 +21,7 @@ export default function AdminI18nPage() {
     const res = await apiFetch<Row[]>("/api/admin/i18n");
     setLoading(false);
     if (!res.ok) {
-      message.error(res.message || "加载失败");
+      message.error(res.message || t("msg.load_fail", "加载失败"));
       return;
     }
     setRows(res.data || []);
@@ -28,15 +29,32 @@ export default function AdminI18nPage() {
 
   useEffect(() => {
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const exportCsv = () => {
     window.open("/api/admin/i18n?format=csv", "_blank");
   };
 
+  const syncPack = async () => {
+    setSyncing(true);
+    const res = await apiFetch<{ keys: number; upserted: number }>("/api/admin/i18n", {
+      method: "POST",
+      body: JSON.stringify({ action: "sync" }),
+    });
+    setSyncing(false);
+    if (!res.ok) {
+      message.error(res.message || t("msg.fail", "失败"));
+      return;
+    }
+    message.success(`${t("admin.synced", "已同步语言包")} (${res.data?.upserted || 0}/${res.data?.keys || 0})`);
+    await load();
+    await reload();
+  };
+
   const importCsv = async () => {
     if (!csvText.trim()) {
-      message.warning("请粘贴 CSV 内容");
+      message.warning(t("admin.i18n_tip", "支持中越双语。可导出 CSV（列: key, zh, vi, group）→ 人工校对 → 粘贴导入更新。"));
       return;
     }
     const res = await apiFetch<{ imported: number }>("/api/admin/i18n", {
@@ -44,10 +62,10 @@ export default function AdminI18nPage() {
       body: JSON.stringify({ csv: csvText }),
     });
     if (!res.ok) {
-      message.error(res.message || "导入失败");
+      message.error(res.message || t("msg.fail", "失败"));
       return;
     }
-    message.success(`已导入 ${res.data?.imported || 0} 条`);
+    message.success(`${t("admin.i18n_import", "导入更新")} ${res.data?.imported || 0}`);
     setCsvText("");
     await load();
     await reload();
@@ -57,12 +75,13 @@ export default function AdminI18nPage() {
     <AdminShell>
       <Typography.Title level={3}>{t("nav.admin_i18n", "语言包")}</Typography.Title>
       <Card style={{ marginBottom: 16 }}>
-        <Typography.Paragraph>
-          支持中越双语。可导出 CSV（列：key,zh,vi,group）→ 人工校对 → 粘贴导入更新，用于修正机翻不准的文案。
-        </Typography.Paragraph>
+        <Typography.Paragraph>{t("admin.i18n_tip", "支持中越双语。可导出 CSV（列: key, zh, vi, group）→ 人工校对 → 粘贴导入更新。")}</Typography.Paragraph>
         <Space wrap style={{ marginBottom: 12 }}>
+          <Button icon={<SyncOutlined />} loading={syncing} onClick={syncPack}>
+            {t("admin.sync_pack", "同步代码词库")}
+          </Button>
           <Button icon={<DownloadOutlined />} onClick={exportCsv}>
-            导出 CSV
+            Xuất CSV
           </Button>
           <Upload
             accept=".csv,text/csv"
@@ -70,14 +89,14 @@ export default function AdminI18nPage() {
             beforeUpload={async (file) => {
               const text = await file.text();
               setCsvText(text);
-              message.success("已读取文件，请点击导入");
+              message.success("OK");
               return false;
             }}
           >
-            <Button icon={<UploadOutlined />}>选择 CSV 文件</Button>
+            <Button icon={<UploadOutlined />}>Chọn tệp CSV</Button>
           </Upload>
           <Button type="primary" onClick={importCsv}>
-            导入更新
+            {t("admin.i18n_import", "导入更新")}
           </Button>
         </Space>
         <Input.TextArea
@@ -95,9 +114,9 @@ export default function AdminI18nPage() {
           pagination={{ pageSize: 20 }}
           columns={[
             { title: "key", dataIndex: "key", width: 220 },
-            { title: "中文 zh", dataIndex: "zh" },
-            { title: "越南语 vi", dataIndex: "vi" },
-            { title: "分组", dataIndex: "groupName", width: 100 },
+            { title: "zh", dataIndex: "zh" },
+            { title: "vi", dataIndex: "vi" },
+            { title: "group", dataIndex: "groupName", width: 100 },
           ]}
         />
       </Card>

@@ -5,7 +5,9 @@ import { Card, List, Space, Typography, message } from "antd";
 import dayjs from "dayjs";
 import { ActionButton } from "@/components/ActionButton";
 import { CustomerShell } from "@/components/CustomerShell";
+import { useI18n } from "@/components/I18nProvider";
 import { apiFetch } from "@/lib/client";
+import { localizeNoticeBody, localizeNoticeTitle } from "@/lib/localize";
 
 type Note = { id: string; title: string; body: string; read: boolean; createdAt: string };
 
@@ -21,15 +23,17 @@ function cleanBody(body: string) {
 }
 
 export default function CustomerNotificationsPage() {
+  const { t } = useI18n();
   const [rows, setRows] = useState<Note[]>([]);
   const [acting, setActing] = useState<string | null>(null);
   const load = async () => {
     const res = await apiFetch<Note[]>("/api/notifications");
-    if (!res.ok) message.error(res.message || "加载失败");
+    if (!res.ok) message.error(res.message || t("msg.load_fail", "加载失败"));
     else setRows(res.data || []);
   };
   useEffect(() => {
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const respondSuggest = async (note: Note, accept: boolean) => {
@@ -38,8 +42,8 @@ export default function CustomerNotificationsPage() {
     setActing(note.id);
     const res = await apiFetch(`/api/suggestions/${suggestId}`, { method: "POST", body: JSON.stringify({ accept }) });
     setActing(null);
-    if (!res.ok) return message.error(res.message || "处理失败");
-    message.success(accept ? "已确认撮合" : "已拒绝");
+    if (!res.ok) return message.error(res.message || t("suggest.fail", "处理失败"));
+    message.success(accept ? t("banner.ok_match", "已确认撮合") : t("banner.no_match", "已拒绝"));
     await apiFetch("/api/notifications", { method: "POST", body: JSON.stringify({ ids: [note.id] }) });
     load();
   };
@@ -48,48 +52,50 @@ export default function CustomerNotificationsPage() {
     <CustomerShell selected="notes">
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12, gap: 8, flexWrap: "wrap" }}>
         <Typography.Title level={3} style={{ margin: 0 }}>
-          通知
+          {t("nav.notes", "通知")}
         </Typography.Title>
         <ActionButton
           tone="primary"
           onClick={async () => {
             await apiFetch("/api/notifications", { method: "POST", body: JSON.stringify({ all: true }) });
-            message.success("已全部标为已读");
+            message.success(t("msg.read_all", "已全部标为已读"));
             load();
           }}
         >
-          全部已读
+          {t("banner.read_all", "全部已读")}
         </ActionButton>
       </div>
       <Card>
         <List
           dataSource={rows}
-          locale={{ emptyText: "暂无通知" }}
+          locale={{ emptyText: t("banner.empty", "暂无通知") }}
           renderItem={(item) => {
             const meta = parseMeta(item.body);
             const canSuggest = !!meta.suggestId && (item.title.includes("撮合") || item.title.includes("顺路"));
+            const title = localizeNoticeTitle(item.title, t);
+            const body = localizeNoticeBody(cleanBody(item.body), t);
             return (
               <List.Item
                 actions={[
                   canSuggest ? (
                     <Space key="act" wrap>
                       <ActionButton tone="primary" loading={acting === item.id} onClick={() => respondSuggest(item, true)}>
-                        确认匹配
+                        {t("banner.confirm_match", "确认匹配")}
                       </ActionButton>
                       <ActionButton tone="danger" loading={acting === item.id} onClick={() => respondSuggest(item, false)}>
-                        不匹配
+                        {t("banner.reject_match", "不匹配")}
                       </ActionButton>
                     </Space>
                   ) : (
                     <ActionButton key="go" href={meta.href || "/orders"} tone="cyan">
-                      去处理
+                      {t("banner.go", "去处理")}
                     </ActionButton>
                   ),
                 ]}
               >
                 <List.Item.Meta
-                  title={`${item.read ? "" : "· "}${item.title} · ${dayjs(item.createdAt).format("YYYY-MM-DD HH:mm")}`}
-                  description={cleanBody(item.body)}
+                  title={`${item.read ? "" : "· "}${title} · ${dayjs(item.createdAt).format("YYYY-MM-DD HH:mm")}`}
+                  description={body}
                 />
               </List.Item>
             );

@@ -27,13 +27,6 @@ type Row = {
   waiting: boolean;
 };
 
-function levelTag(score?: number) {
-  if (score == null) return null;
-  if (score >= 70) return <Tag color="green">顺路度高</Tag>;
-  if (score >= 45) return <Tag color="blue">顺路度中</Tag>;
-  return <Tag>顺路度低</Tag>;
-}
-
 export function MatchSuggestions() {
   const { t } = useI18n();
   const [rows, setRows] = useState<Row[]>([]);
@@ -61,15 +54,17 @@ export function MatchSuggestions() {
 
   const needConfirm = rows.filter((row) => !row.waiting && (row.status === "CUSTOMER_OK" || row.status === "DRIVER_OK"));
 
+  const levelTag = (score?: number) => {
+    if (score == null) return null;
+    if (score >= 70) return <Tag color="green">{t("cap.fit_high", "顺路度高")}</Tag>;
+    if (score >= 45) return <Tag color="blue">{t("cap.fit_mid", "顺路度中")}</Tag>;
+    return <Tag>{t("cap.fit_low", "顺路度低")}</Tag>;
+  };
+
   return (
     <Card size="small" title={t("suggest.title", "顺路可撮合")} style={{ marginBottom: 16 }}>
       {needConfirm.length ? (
-        <Alert
-          type="info"
-          showIcon
-          style={{ marginBottom: 12 }}
-          message="对方已确认顺路撮合，请点击「确认匹配」完成闭环，订单才会进入待执行。"
-        />
+        <Alert type="info" showIcon style={{ marginBottom: 12 }} message={t("suggest.peer_banner", "对方已确认顺路撮合，请点击「确认匹配」完成闭环，订单才会进入待执行。")} />
       ) : null}
       <Space direction="vertical" style={{ width: "100%" }}>
         {rows.map((row) => {
@@ -80,8 +75,12 @@ export function MatchSuggestions() {
             <div key={row.id} style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
               <div>
                 <Typography.Text strong>{row.orderNo}</Typography.Text> {levelTag(row.score)}
-                {row.deadline ? <Tag>{dayjs(row.deadline).format("HH:mm")} 前有效</Tag> : null}
-                {peerConfirmed ? <Tag color="orange">对方已确认，待你确认</Tag> : null}
+                {row.deadline ? (
+                  <Tag>
+                    {dayjs(row.deadline).format("HH:mm")} {t("suggest.valid_until", "前有效")}
+                  </Tag>
+                ) : null}
+                {peerConfirmed ? <Tag color="orange">{t("suggest.peer_tag", "对方已确认，待你确认")}</Tag> : null}
                 <div style={{ color: "#475569", fontSize: 13 }}>{row.reason || `${row.pickup} → ${row.delivery}`}</div>
                 <div style={{ color: "#64748b", fontSize: 12 }}>
                   {row.pickup} → {row.delivery}
@@ -93,7 +92,7 @@ export function MatchSuggestions() {
               <Space wrap>
                 {row.orderId ? (
                   <ActionButton href={detailHref} tone="cyan">
-                    订单详情
+                    {t("suggest.order_detail", "订单详情")}
                   </ActionButton>
                 ) : null}
                 {row.waiting ? (
@@ -101,10 +100,10 @@ export function MatchSuggestions() {
                 ) : (
                   <>
                     <ActionButton tone="primary" onClick={() => act(row.id, true)}>
-                      确认匹配
+                      {t("banner.confirm_match", "确认匹配")}
                     </ActionButton>
                     <ActionButton tone="danger" onClick={() => act(row.id, false)}>
-                      不匹配
+                      {t("banner.reject_match", "不匹配")}
                     </ActionButton>
                   </>
                 )}

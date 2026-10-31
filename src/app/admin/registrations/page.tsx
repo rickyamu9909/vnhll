@@ -141,42 +141,46 @@ export default function RegistrationsPage() {
 
   return (
     <AdminShell>
-      <Typography.Title level={3}>注册审核</Typography.Title>
+      <Typography.Title level={3}>{t("admin.reg_title", "注册审核")}</Typography.Title>
       <Card>
         <Table
           rowKey="id"
           dataSource={rows}
           pagination={{ pageSize: 15, showSizeChanger: true, pageSizeOptions: ["15", "25", "50", "100", "500"] }}
           columns={[
-            { title: "名称", render: (_, r) => r.companyName || r.displayName || r.username },
-            { title: "账号", dataIndex: "username" },
-            { title: "角色", render: (_, r) => `${r.role}${r.carrierKind ? "/" + r.carrierKind : ""}` },
-            { title: "电话", dataIndex: "phone" },
-            { title: "状态", dataIndex: "status", render: (v) => <Tag>{v}</Tag> },
+            { title: t("admin.name", "名称"), render: (_, r) => r.companyName || r.displayName || r.username },
+            { title: t("admin.account", "账号"), dataIndex: "username" },
+            { title: t("admin.role", "角色"), render: (_, r) => `${r.role}${r.carrierKind ? "/" + r.carrierKind : ""}` },
+            { title: t("admin.phone", "电话"), dataIndex: "phone" },
             {
-              title: "操作",
+              title: t("admin.status", "状态"),
+              dataIndex: "status",
+              render: (v) => <Tag>{v === "ACTIVE" ? t("user.active", "已激活") : v === "PENDING" ? t("user.pending", "待审核") : v === "REJECTED" ? t("user.rejected", "已拒绝") : v}</Tag>,
+            },
+            {
+              title: t("admin.op", "操作"),
               render: (_, r) => (
                 <Space wrap>
                   <ActionButton tone="cyan" onClick={() => openDetail(r.id)}>
-                    查看资料
+                    {t("admin.view_profile", "查看资料")}
                   </ActionButton>
                   {r.status === "PENDING" ? (
                     <>
                       <ActionButton tone="primary" onClick={() => act(r.id, "approve")}>
-                        通过
+                        {t("admin.pass", "通过")}
                       </ActionButton>
                       <ActionButton
                         tone="danger"
                         onClick={() => {
                           let reason = "";
                           Modal.confirm({
-                            title: "拒绝原因",
+                            title: t("admin.reject", "拒绝"),
                             content: <Input.TextArea onChange={(e) => (reason = e.target.value)} />,
                             onOk: () => act(r.id, "reject", reason),
                           });
                         }}
                       >
-                        拒绝
+                        {t("admin.reject", "拒绝")}
                       </ActionButton>
                     </>
                   ) : null}

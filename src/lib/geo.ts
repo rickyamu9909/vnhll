@@ -128,6 +128,72 @@ export async function geocode(query: string): Promise<Coord | null> {
   return coord;
 }
 
+/** 清洗 GPS 噪点：去掉重复点与异常大跳 */
+export function cleanTrailPoints(points: Coord[], maxJumpKm = 80): Coord[] {
+  if (!points.length) return [];
+  const out: Coord[] = [points[0]];
+  for (let i = 1; i < points.length; i++) {
+    const prev = out[out.length - 1];
+    const cur = points[i];
+    const d = haversineKm(prev, cur);
+    if (d > maxJumpKm) continue;
+    if (d < 0.012) continue;
+    out.push(cur);
+  }
+  return out;
+}
+
+function sampleTrail(points: Coord[], maxN: number): Coord[] {
+  if (points.length <= maxN) return points;
+  const out: Coord[] = [];
+  const step = (points.length - 1) / (maxN - 1);
+  for (let i = 0; i < maxN; i++) {
+    out.push(points[Math.round(i * step)]);
+  }
+  return out;
+}
+
+/**
+ * 历史上报点 → 贴路折线（快递轨迹效果）。
+ * 优先 OSRM match；失败则返回清洗后的原始折线。
+ */
+export async function historyTrailPolyline(points: Coord[]): Promise<{
+  line: Array<[number, number]>;
+  source: "osrm-match" | "raw";
+} | null> {
+  const cleaned = cleanTrailPoints(points);
+  if (cleaned.length < 2) {
+    if (cleaned.length === 1) return { line: [[cleaned[0].lat, cleaned[0].lng]], source: "raw" };
+    return null;
+  }
+  const sampled = sampleTrail(cleaned, 90);
+  const rawLine = cleaned.map((p) => [p.lat, p.lng] as [number, number]);
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 10000);
+  try {
+    const coords = sampled.map((p) => `${p.lng},${p.lat}`).join(";");
+    const url = `https://router.project-osrm.org/match/v1/driving/${coords}?geometries=geojson&overview=full&gaps=ignore&tidy=true`;
+    const res = await fetch(url, { signal: ctrl.signal, headers: { Accept: "application/json" } });
+    if (!res.ok) return { line: rawLine, source: "raw" };
+    const data = (await res.json()) as {
+      matchings?: Array<{ geometry?: { coordinates?: Array<[number, number]> } }>;
+    };
+    const parts = data.matchings || [];
+    const merged: Array<[number, number]> = [];
+    for (const m of parts) {
+      const raw = m.geometry?.coordinates;
+      if (!raw?.length) continue;
+      for (const [lng, lat] of raw) merged.push([lat, lng]);
+    }
+    if (merged.length >= 2) return { line: merged, source: "osrm-match" };
+    return { line: rawLine, source: "raw" };
+  } catch {
+    return { line: rawLine, source: "raw" };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** 服务端向 OSRM 拉完整道路折线（供轨迹地图画真导航线） */
 export async function routePolyline(origin: Coord, dest: Coord): Promise<Array<[number, number]> | null> {
   const key = `${origin.lat.toFixed(5)},${origin.lng.toFixed(5)}>${dest.lat.toFixed(5)},${dest.lng.toFixed(5)}`;

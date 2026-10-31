@@ -125,82 +125,92 @@ export default function AdminDriversPage() {
       <Card size="small" style={{ marginBottom: 16 }}>
         <QueryFields
           fields={[
-            { name: "name", placeholder: "姓名/公司" },
-            { name: "phone", placeholder: "电话" },
-            { name: "account", placeholder: "账号" },
-            { name: "plate", placeholder: "车牌" },
-            { name: "vehicle", placeholder: "车型" },
-            { name: "kind", placeholder: "类型" },
+            { name: "name", placeholder: t("admin.q_name_co", "姓名/公司") },
+            { name: "phone", placeholder: t("admin.phone", "电话") },
+            { name: "account", placeholder: t("admin.account", "账号") },
+            { name: "plate", placeholder: t("team.plate", "车牌") },
+            { name: "vehicle", placeholder: t("form.vehicle", "车型") },
+            { name: "kind", placeholder: t("admin.type", "类型") },
           ]}
           onSearch={setQuery}
         />
       </Card>
-      <Card title="注册司机" size="small" style={{ marginBottom: 16 }}>
+      <Card title={t("admin.online_drivers", "注册司机")} size="small" style={{ marginBottom: 16 }}>
         <Table
           size="small"
           rowKey="id"
           dataSource={shownRegs}
           pagination={{ pageSize: 10 }}
           columns={[
-            { title: "名称", render: (_, r) => r.companyName || r.displayName || r.username },
-            { title: "账号", dataIndex: "username" },
-            { title: "类型", dataIndex: "carrierKind", render: (v) => v || "-" },
-            { title: "电话", dataIndex: "phone" },
-            { title: "状态", dataIndex: "status", render: (v) => <Tag>{v}</Tag> },
+            { title: t("admin.name", "名称"), render: (_, r) => r.companyName || r.displayName || r.username },
+            { title: t("admin.account", "账号"), dataIndex: "username" },
+            { title: t("admin.type", "类型"), dataIndex: "carrierKind", render: (v) => v || "-" },
+            { title: t("admin.phone", "电话"), dataIndex: "phone" },
             {
-              title: "操作",
+              title: t("admin.status", "状态"),
+              dataIndex: "status",
+              render: (v) => (
+                <Tag>{v === "ACTIVE" ? t("user.active", "已激活") : v === "PENDING" ? t("user.pending", "待审核") : v}</Tag>
+              ),
+            },
+            {
+              title: t("admin.op", "操作"),
               render: (_, r) => (
                 <Button
                   size="small"
                   onClick={async () => {
                     const res = await apiFetch<RegDetail>(`/api/admin/registrations/${r.id}`);
-                    if (!res.ok || !res.data) message.error(res.message || "加载失败");
+                    if (!res.ok || !res.data) message.error(res.message || t("msg.load_fail", "加载失败"));
                     else setDetail(res.data);
                   }}
                 >
-                  查看资料
+                  {t("admin.view_profile", "查看资料")}
                 </Button>
               ),
             },
           ]}
         />
       </Card>
-      <Card title="线下司机" size="small">
+      <Card title={t("admin.offline_drivers", "线下司机")} size="small">
         <Table
           rowKey="id"
           loading={loading}
           dataSource={shownDrivers}
           columns={[
-            { title: "姓名", dataIndex: "name" },
-            { title: "电话", dataIndex: "phone" },
+            { title: t("team.name", "姓名"), dataIndex: "name" },
+            { title: t("admin.phone", "电话"), dataIndex: "phone" },
             {
-              title: "车型",
+              title: t("form.vehicle", "车型"),
               dataIndex: "vehicleType",
               render: (v) => vehicleLabel(v, t),
             },
-            { title: "车牌", dataIndex: "plateNumber", render: (v) => v || "-" },
+            { title: t("team.plate", "车牌"), dataIndex: "plateNumber", render: (v) => v || "-" },
             {
-              title: "状态",
+              title: t("admin.status", "状态"),
               dataIndex: "status",
-              render: (v) => <Tag color={v === "ACTIVE" ? "green" : v === "PENDING" ? "gold" : "red"}>{v}</Tag>,
+              render: (v) => (
+                <Tag color={v === "ACTIVE" ? "green" : v === "PENDING" ? "gold" : "red"}>
+                  {v === "ACTIVE" ? t("user.active", "已激活") : v === "PENDING" ? t("user.pending", "待审核") : v === "DISABLED" ? t("user.disabled", "已停用") : v}
+                </Tag>
+              ),
             },
             {
-              title: "操作",
+              title: t("admin.op", "操作"),
               render: (_, r) => (
                 <Space wrap>
                   {r.status === "PENDING" && (
                     <>
                       <ActionButton tone="primary" onClick={() => act(r.id, "approve")}>
-                        通过
+                        {t("admin.pass", "通过")}
                       </ActionButton>
                       <ActionButton tone="danger" onClick={() => act(r.id, "reject", "资质不符")}>
-                        拒绝
+                        {t("admin.reject", "拒绝")}
                       </ActionButton>
                     </>
                   )}
                   {r.status === "ACTIVE" && (
                     <ActionButton tone="orange" onClick={() => act(r.id, "disable")}>
-                      停用
+                      {t("admin.disable", "停用")}
                     </ActionButton>
                   )}
                 </Space>

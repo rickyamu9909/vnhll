@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { getSession, requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { jsonFail, jsonOk } from "@/lib/api";
-import { parseCsv, toCsv } from "@/lib/i18n";
+import { parseCsv, syncUiTextPack, toCsv } from "@/lib/i18n";
 
 export async function GET(req: NextRequest) {
   const user = await getSession();
@@ -40,6 +40,10 @@ export async function POST(req: NextRequest) {
     }
   } else {
     const body = await req.json();
+    if (body?.action === "sync") {
+      const result = await syncUiTextPack(body.overwrite !== true);
+      return jsonOk(result);
+    }
     if (Array.isArray(body.items)) {
       items = body.items;
     } else if (typeof body.csv === "string") {

@@ -1,14 +1,42 @@
 import { prisma } from "./prisma";
+import { UI_TEXT } from "./ui-text";
 
 export type Locale = "zh" | "vi";
 
 export async function getTranslationsMap(locale: Locale = "zh") {
+  const map: Record<string, string> = { ...(UI_TEXT[locale] || {}) };
   const rows = await prisma.translation.findMany();
-  const map: Record<string, string> = {};
   for (const row of rows) {
-    map[row.key] = locale === "vi" ? row.vi : row.zh;
+    const val = locale === "vi" ? row.vi : row.zh;
+    if (val) map[row.key] = val;
   }
   return map;
+}
+
+/** 把代码内 UI_TEXT 全量写入语言包表（缺 key 补齐；已有行不覆盖非空人工校对） */
+export async function syncUiTextPack(overwriteEmptyOnly = true) {
+  const zh = UI_TEXT.zh || {};
+  const vi = UI_TEXT.vi || {};
+  const keys = Array.from(new Set([...Object.keys(zh), ...Object.keys(vi)]));
+  let upserted = 0;
+  for (const key of keys) {
+    const groupName = key.includes(".") ? key.split(".")[0] : "common";
+    const zhVal = zh[key] || "";
+    const viVal = vi[key] || "";
+    const existing = await prisma.translation.findUnique({ where: { key } });
+    if (!existing) {
+      await prisma.translation.create({ data: { key, zh: zhVal, vi: viVal, groupName } });
+      upserted += 1;
+      continue;
+    }
+    const nextZh = overwriteEmptyOnly && existing.zh ? existing.zh : zhVal || existing.zh;
+    const nextVi = overwriteEmptyOnly && existing.vi ? existing.vi : viVal || existing.vi;
+    if (nextZh !== existing.zh || nextVi !== existing.vi) {
+      await prisma.translation.update({ where: { key }, data: { zh: nextZh, vi: nextVi, groupName } });
+      upserted += 1;
+    }
+  }
+  return { keys: keys.length, upserted };
 }
 
 export function t(dict: Record<string, string>, key: string, fallback?: string) {

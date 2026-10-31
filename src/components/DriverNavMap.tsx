@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Alert, Button, Space, Typography } from "antd";
+import { useI18n } from "@/components/I18nProvider";
 
 type Props = {
   destLat?: number | null;
@@ -43,6 +44,7 @@ function loadLeaflet(): Promise<any> {
 }
 
 export function DriverNavMap({ destLat, destLng, destAddress, title, autoStart = false }: Props) {
+  const { t } = useI18n();
   const ref = useRef<HTMLDivElement>(null);
   const [error, setError] = useState("");
   const [open, setOpen] = useState(autoStart);
@@ -85,14 +87,14 @@ export function DriverNavMap({ destLat, destLng, destAddress, title, autoStart =
             map.fitBounds(routeLine.getBounds(), { padding: [24, 24] });
             const km = Math.round((route.distance / 1000) * 10) / 10;
             const min = Math.max(1, Math.round((route.duration / 60) * 1.35));
-            setEta(`距${title}约 ${km} 公里 · ${min} 分钟（越南路况）`);
+            setEta(t("nav.eta", "距{dest}约 {km} 公里 · {min} 分钟（越南路况）").replace("{dest}", title).replace("{km}", String(km)).replace("{min}", String(min)));
           } catch {
             /* ignore */
           }
         };
 
         if (!navigator.geolocation) {
-          setError("当前浏览器不支持定位");
+          setError(t("nav.no_geo", "当前浏览器不支持定位"));
           return;
         }
         watchId = navigator.geolocation.watchPosition(
@@ -110,11 +112,11 @@ export function DriverNavMap({ destLat, destLng, destAddress, title, autoStart =
             if (dest) void drawRoute(here, dest);
             else map.setView([here.lat, here.lng], 14);
           },
-          () => setError("定位失败，请允许位置权限后重试"),
+          () => setError(t("nav.geo_fail", "定位失败，请允许位置权限后重试")),
           { enableHighAccuracy: true, maximumAge: 3000, timeout: 15000 }
         );
       } catch {
-        setError("地图加载失败");
+        setError(t("nav.map_fail", "地图加载失败"));
       }
     })();
 
@@ -123,7 +125,7 @@ export function DriverNavMap({ destLat, destLng, destAddress, title, autoStart =
       if (watchId) navigator.geolocation.clearWatch(watchId);
       if (map) map.remove();
     };
-  }, [open, destLat, destLng, destAddress, title]);
+  }, [open, destLat, destLng, destAddress, title, t]);
 
   const gmaps = pos
     ? `https://www.google.com/maps/dir/?api=1&origin=${pos.lat},${pos.lng}&destination=${
@@ -143,21 +145,27 @@ export function DriverNavMap({ destLat, destLng, destAddress, title, autoStart =
             setOpen(true);
           }}
         >
-          {open ? `导航中：当前位置 → ${title}` : `从当前位置导航到${title}`}
+          {open
+            ? t("nav.opening", "导航中：当前位置 → {dest}").replace("{dest}", title)
+            : t("nav.start_to", "从当前位置导航到{dest}").replace("{dest}", title)}
         </Button>
         {open ? (
           <Button onClick={() => setOpen(false)} size="small">
-            收起
+            {t("nav.collapse", "收起")}
           </Button>
         ) : null}
         <Button href={gmaps} target="_blank" style={{ background: "#0ea5e9", borderColor: "#0ea5e9", color: "#fff" }}>
-          用谷歌地图打开
+          {t("nav.google", "用谷歌地图打开")}
         </Button>
       </Space>
       {open ? (
         <div style={{ marginTop: 8 }}>
           {error ? <Alert type="warning" showIcon message={error} style={{ marginBottom: 8 }} /> : null}
-          {eta ? <Typography.Text type="secondary">{eta}</Typography.Text> : <Typography.Text type="secondary">正在获取当前位置并规划到{title}…</Typography.Text>}
+          {eta ? (
+            <Typography.Text type="secondary">{eta}</Typography.Text>
+          ) : (
+            <Typography.Text type="secondary">{t("nav.locating", "正在获取当前位置并规划到{dest}…").replace("{dest}", title)}</Typography.Text>
+          )}
           <div ref={ref} style={{ height: 360, width: "100%", marginTop: 8, borderRadius: 8, border: "1px solid #e2e8f0" }} />
         </div>
       ) : null}

@@ -8,6 +8,7 @@ import { MatchSuggestions } from "@/components/MatchSuggestions";
 import { useI18n } from "@/components/I18nProvider";
 import { QueryFields } from "@/components/QueryFields";
 import { apiFetch, vehicleLabel } from "@/lib/client";
+import { localizeCapStatus } from "@/lib/localize";
 import { includesText } from "@/lib/order-view";
 import { formatVnd } from "@/lib/money";
 
@@ -22,19 +23,18 @@ type Row = {
   negotiations: Array<{ id: string; status: string; priceVnd: string; orderId?: string | null }>;
 };
 
-const CAP_STATUS: Record<string, string> = { OPEN: "可匹配", MATCHED: "已匹配", CLOSED: "已取消" };
-
 export default function CapacityListPage() {
   const { t } = useI18n();
   const [rows, setRows] = useState<Row[]>([]);
   const [query, setQuery] = useState<Record<string, string>>({});
   const load = async () => {
     const res = await apiFetch<Row[]>("/api/driver/capacity");
-    if (!res.ok) message.error(res.message || "加载失败");
+    if (!res.ok) message.error(res.message || t("msg.load_fail", "加载失败"));
     else setRows(res.data || []);
   };
   useEffect(() => {
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const shown = useMemo(
     () =>
@@ -44,7 +44,7 @@ export default function CapacityListPage() {
           includesText(row.destPreference, query.dest) &&
           includesText(`${row.vehicleType || ""} ${row.vehicleType ? vehicleLabel(row.vehicleType, t) : ""}`, query.vehicle) &&
           includesText(row.expectedPriceVnd, query.price) &&
-          includesText(`${row.status} ${CAP_STATUS[row.status] || ""}`, query.status)
+          includesText(`${row.status} ${localizeCapStatus(row.status, t)}`, query.status)
       ),
     [rows, query, t]
   );
@@ -60,11 +60,11 @@ export default function CapacityListPage() {
       <Card>
         <QueryFields
           fields={[
-            { name: "location", placeholder: "空车位置" },
-            { name: "dest", placeholder: "目的偏好" },
-            { name: "vehicle", placeholder: "车型" },
-            { name: "price", placeholder: "期望价" },
-            { name: "status", placeholder: "状态" },
+            { name: "location", placeholder: t("cap.location", "空车位置") },
+            { name: "dest", placeholder: t("cap.dest_pref", "目的偏好") },
+            { name: "vehicle", placeholder: t("form.vehicle", "车型") },
+            { name: "price", placeholder: t("cap.expected", "期望价") },
+            { name: "status", placeholder: t("form.status", "状态") },
           ]}
           onSearch={setQuery}
         />
@@ -72,23 +72,23 @@ export default function CapacityListPage() {
           rowKey="id"
           dataSource={shown}
           columns={[
-            { title: "空车位置", dataIndex: "location" },
-            { title: "目的偏好", dataIndex: "destPreference", render: (value) => value || "-" },
-            { title: "车型", dataIndex: "vehicleType", render: (value) => (value ? vehicleLabel(value, t) : "-") },
-            { title: "期望价", dataIndex: "expectedPriceVnd", render: (v) => formatVnd(v) },
-            { title: "状态", dataIndex: "status", render: (value) => CAP_STATUS[value] || value },
+            { title: t("cap.location", "空车位置"), dataIndex: "location" },
+            { title: t("cap.dest_pref", "目的偏好"), dataIndex: "destPreference", render: (value) => value || "-" },
+            { title: t("form.vehicle", "车型"), dataIndex: "vehicleType", render: (value) => (value ? vehicleLabel(value, t) : "-") },
+            { title: t("cap.expected", "期望价"), dataIndex: "expectedPriceVnd", render: (v) => formatVnd(v) },
+            { title: t("form.status", "状态"), dataIndex: "status", render: (value) => localizeCapStatus(value, t) },
             {
-              title: "操作",
+              title: t("admin.op", "操作"),
               render: (_, row) => {
                 const orderId = row.orderId || row.negotiations.find((item) => item.orderId)?.orderId;
                 return (
                   <Space size={6} wrap>
                     <ActionButton href={`/driver/capacity/${row.id}`} tone="primary">
-                      详情
+                      {t("action.detail", "详情")}
                     </ActionButton>
                     {row.status === "OPEN" ? (
                       <ActionButton href={`/driver/capacity/${row.id}/edit`} tone="cyan">
-                        编辑
+                        {t("cap.edit", "编辑")}
                       </ActionButton>
                     ) : null}
                     {row.status === "OPEN" ? (
@@ -96,27 +96,27 @@ export default function CapacityListPage() {
                         tone="danger"
                         onClick={() => {
                           Modal.confirm({
-                            title: "确认取消这条运力？",
-                            content: "取消后客户不能再对它发起匹配。",
-                            okText: "确认取消",
+                            title: t("cap.cancel_title", "确认取消这条运力？"),
+                            content: t("cap.cancel_body", "取消后客户不能再对它发起匹配。"),
+                            okText: t("action.cancel_confirm", "确认取消"),
                             okButtonProps: { danger: true },
                             onOk: async () => {
                               const res = await apiFetch(`/api/driver/capacity/${row.id}`, {
                                 method: "POST",
                                 body: JSON.stringify({ action: "cancel" }),
                               });
-                              if (!res.ok) message.error(res.message || "取消失败");
+                              if (!res.ok) message.error(res.message || t("msg.fail", "失败"));
                               else load();
                             },
                           });
                         }}
                       >
-                        取消
+                        {t("cap.cancel", "取消")}
                       </ActionButton>
                     ) : null}
                     {orderId ? (
                       <ActionButton href={`/driver/orders/${orderId}`} tone="green">
-                        查看订单
+                        {t("cap.view_order", "查看订单")}
                       </ActionButton>
                     ) : null}
                   </Space>
@@ -124,7 +124,7 @@ export default function CapacityListPage() {
               },
             },
             {
-              title: "协商",
+              title: t("cap.nego", "协商"),
               render: (_, r) =>
                 r.negotiations
                   .filter((n) => n.status === "PENDING")
@@ -138,11 +138,11 @@ export default function CapacityListPage() {
                             method: "POST",
                             body: JSON.stringify({ accept: true }),
                           });
-                          if (!res.ok) message.error(res.message || "失败");
+                          if (!res.ok) message.error(res.message || t("msg.fail", "失败"));
                           else load();
                         }}
                       >
-                        接受
+                        {t("action.accept", "接受")}
                       </ActionButton>
                       <ActionButton
                         tone="danger"
@@ -151,11 +151,11 @@ export default function CapacityListPage() {
                             method: "POST",
                             body: JSON.stringify({ accept: false }),
                           });
-                          if (!res.ok) message.error(res.message || "失败");
+                          if (!res.ok) message.error(res.message || t("msg.fail", "失败"));
                           else load();
                         }}
                       >
-                        拒绝
+                        {t("banner.reject_neg", "拒绝")}
                       </ActionButton>
                     </div>
                   )),

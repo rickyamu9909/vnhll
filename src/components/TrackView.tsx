@@ -6,6 +6,7 @@ import dayjs from "dayjs";
 import { BackButton } from "@/components/BackButton";
 import { useI18n } from "@/components/I18nProvider";
 import { apiFetch, statusLabel } from "@/lib/client";
+import { localizeStatusText } from "@/lib/localize";
 
 type Point = { lat: number; lng: number; speedKmh: number | null; statusText: string; recordedAt: string };
 type TrackData = {
@@ -21,6 +22,8 @@ type TrackData = {
   dest: { lat: number; lng: number } | null;
   navPolyline?: Array<[number, number]> | null;
   navSource?: string | null;
+  historyPolyline?: Array<[number, number]> | null;
+  historySource?: string | null;
   latest: Point | null;
   points: Point[];
 };
@@ -28,7 +31,10 @@ type TrackData = {
 type LeafletNS = {
   map: (el: HTMLElement, options?: object) => LeafletMap;
   tileLayer: (url: string, options?: object) => { addTo: (map: LeafletMap) => { on: (name: string, fn: () => void) => void } };
-  polyline: (latlngs: Array<[number, number]>, options?: object) => { addTo: (map: LeafletMap) => void; setLatLngs?: (ll: Array<[number, number]>) => void; remove?: () => void };
+  polyline: (
+    latlngs: Array<[number, number]>,
+    options?: object
+  ) => { addTo: (map: LeafletMap) => void; setLatLngs?: (ll: Array<[number, number]>) => void; remove?: () => void; getBounds?: () => unknown };
   marker: (latlng: [number, number], options?: object) => {
     addTo: (map: LeafletMap) => unknown;
     setLatLng: (ll: [number, number]) => void;
@@ -37,6 +43,7 @@ type LeafletNS = {
   };
   divIcon: (options: object) => unknown;
   latLngBounds: (latlngs: Array<[number, number]>) => unknown;
+  circleMarker: (latlng: [number, number], options?: object) => { addTo: (map: LeafletMap) => void; remove?: () => void };
 };
 
 type LeafletMap = {
@@ -44,7 +51,6 @@ type LeafletMap = {
   fitBounds: (bounds: unknown, options?: object) => void;
   remove: () => void;
   invalidateSize: () => void;
-  eachLayer?: (fn: (layer: { remove?: () => void }) => void) => void;
 };
 
 declare global {
@@ -120,7 +126,12 @@ export function TrackView({ apiUrl, backHref }: { apiUrl: string; backHref: stri
   const mapNode = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<LeafletMap | null>(null);
   const LRef = useRef<LeafletNS | null>(null);
-  const overlaysRef = useRef<{ truck?: ReturnType<LeafletNS["marker"]>; trail?: { remove: () => void }; builtKey?: string }>({});
+  const overlaysRef = useRef<{
+    truck?: ReturnType<LeafletNS["marker"]>;
+    trail?: { remove: () => void };
+    dots?: Array<{ remove?: () => void }>;
+    builtKey?: string;
+  }>({});
 
   useEffect(() => {
     let stopped = false;
@@ -143,12 +154,15 @@ export function TrackView({ apiUrl, backHref }: { apiUrl: string; backHref: stri
     const origin = data.origin;
     const dest = data.dest;
     const points = data.points || [];
-    if (!origin && !dest && !points.length) return;
+    const history = data.historyPolyline && data.historyPolyline.length >= 2 ? data.historyPolyline : null;
+    if (!origin && !dest && !points.length && !history) return;
 
     let cancelled = false;
     const originName = shortLabel(data.originLabel, t("form.section_origin", "起运"));
     const destName = shortLabel(data.destLabel, t("form.section_dest", "目的地"));
-    const builtKey = `${data.orderNo}:${origin?.lat},${origin?.lng}:${dest?.lat},${dest?.lng}:${data.navPolyline?.length || 0}`;
+    const trailKey = history?.length || points.length;
+    const latestKey = data.latest ? `${data.latest.lat.toFixed(4)},${data.latest.lng.toFixed(4)}` : "";
+    const builtKey = `${data.orderNo}:${origin?.lat},${origin?.lng}:${dest?.lat},${dest?.lng}:${data.navPolyline?.length || 0}:${trailKey}:${data.historySource || ""}`;
 
     (async () => {
       try {
@@ -156,7 +170,6 @@ export function TrackView({ apiUrl, backHref }: { apiUrl: string; backHref: stri
         if (cancelled || !mapNode.current) return;
         LRef.current = L;
 
-        // 底图与起讫/导航线只建一次，后续只更新货车位置，避免整页卡顿
         if (!mapRef.current || overlaysRef.current.builtKey !== builtKey) {
           mapRef.current?.remove();
           overlaysRef.current = {};
@@ -171,14 +184,31 @@ export function TrackView({ apiUrl, backHref }: { apiUrl: string; backHref: stri
 
           const boundsPts: Array<[number, number]> = [];
           const nav = data.navPolyline && data.navPolyline.length >= 2 ? data.navPolyline : null;
+
+          // 计划导航线（淡绿虚线）= 起讫道路规划
           if (nav) {
-            L.polyline(nav, { color: "#52c41a", weight: 5, opacity: 0.9 }).addTo(map);
+            L.polyline(nav, { color: "#95de64", weight: 4, opacity: 0.55, dashArray: "10 8" }).addTo(map);
             boundsPts.push(...nav);
+          } else if (origin && dest) {
+            boundsPts.push([origin.lat, origin.lng], [dest.lat, dest.lng]);
+          }
+
+          // 历史上报轨迹（深蓝实线）= 真实走过的路
+          const trailLine =
+            history ||
+            (points.length >= 2 ? points.map((p) => [p.lat, p.lng] as [number, number]) : null);
+          if (trailLine && trailLine.length >= 2) {
+            L.polyline(trailLine, { color: "#0958d9", weight: 5, opacity: 0.92 }).addTo(map);
+            boundsPts.push(...trailLine);
+            setNavHint(
+              data.historySource === "osrm-match"
+                ? t("track.hist_ok", "已绘制历史上报轨迹（贴路）")
+                : t("track.hist_raw", "已绘制历史上报轨迹")
+            );
+          } else if (nav) {
             setNavHint(t("track.nav_ok", "已按道路导航绘制路线"));
           } else if (origin && dest) {
-            // 禁止用跨海直线冒充导航；提示用户
             setNavHint(t("track.nav_fail", "导航路线暂不可用，仅显示起讫点与车辆位置（未画直线）"));
-            boundsPts.push([origin.lat, origin.lng], [dest.lat, dest.lng]);
           } else {
             setNavHint("");
           }
@@ -192,6 +222,7 @@ export function TrackView({ apiUrl, backHref }: { apiUrl: string; backHref: stri
                 iconAnchor: [14, 28],
               }),
             }).addTo(map);
+            boundsPts.push([origin.lat, origin.lng]);
           }
           if (dest) {
             L.marker([dest.lat, dest.lng], {
@@ -202,32 +233,40 @@ export function TrackView({ apiUrl, backHref }: { apiUrl: string; backHref: stri
                 iconAnchor: [14, 28],
               }),
             }).addTo(map);
+            boundsPts.push([dest.lat, dest.lng]);
           }
 
+          // 稀疏采样历史点，像快递节点
+          const sampleEvery = Math.max(1, Math.floor(points.length / 12));
+          const dots: Array<{ remove?: () => void }> = [];
+          points.forEach((p, idx) => {
+            if (idx % sampleEvery !== 0 && idx !== points.length - 1) return;
+            const dot = L.circleMarker([p.lat, p.lng], {
+              radius: idx === points.length - 1 ? 6 : 4,
+              color: "#0958d9",
+              fillColor: "#69b1ff",
+              fillOpacity: 0.9,
+              weight: 1,
+            }).addTo(map);
+            dots.push(dot as unknown as { remove?: () => void });
+          });
+          overlaysRef.current.dots = dots;
+
           if (boundsPts.length === 1) map.setView(boundsPts[0], 14);
-          else if (boundsPts.length > 1) map.fitBounds(L.latLngBounds(boundsPts), { padding: [48, 48] });
+          else if (boundsPts.length > 1) map.fitBounds(L.latLngBounds(boundsPts), { padding: [48, 48], maxZoom: 15 });
           else map.setView([10.77, 106.7], 11);
           overlaysRef.current.builtKey = builtKey;
           window.setTimeout(() => map.invalidateSize(), 120);
         }
 
         const map = mapRef.current!;
-        // 历史上报轨迹（道路点串，非直线）
-        overlaysRef.current.trail?.remove();
-        if (points.length >= 2) {
-          const trail = L.polyline(
-            points.map((p) => [p.lat, p.lng] as [number, number]),
-            { color: "#237804", weight: 3, opacity: 0.85 }
-          ).addTo(map);
-          overlaysRef.current.trail = trail as unknown as { remove: () => void };
-        }
-
         const vehicle = data.latest || (points.length ? points[points.length - 1] : null);
         if (vehicle) {
+          const statusText = localizeStatusText(vehicle.statusText, t);
           const destLine = destName ? t("track.to_dest", "正在发往{dest}").replace("{dest}", destName) : "";
           const icon = L.divIcon({
             className: "",
-            html: truckIconHtml(vehicle.statusText || t("track.moving", "运输中"), destLine),
+            html: truckIconHtml(statusText, destLine),
             iconSize: [120, 90],
             iconAnchor: [40, 70],
           });
@@ -235,9 +274,12 @@ export function TrackView({ apiUrl, backHref }: { apiUrl: string; backHref: stri
             overlaysRef.current.truck.setLatLng([vehicle.lat, vehicle.lng]);
             overlaysRef.current.truck.setIcon(icon);
           } else {
-            overlaysRef.current.truck = L.marker([vehicle.lat, vehicle.lng], { icon, zIndexOffset: 1000 }).addTo(map) as ReturnType<LeafletNS["marker"]>;
+            overlaysRef.current.truck = L.marker([vehicle.lat, vehicle.lng], { icon, zIndexOffset: 1000 }).addTo(map) as ReturnType<
+              LeafletNS["marker"]
+            >;
           }
         }
+        void latestKey;
       } catch {
         setTileFailed(true);
       }
@@ -277,14 +319,20 @@ export function TrackView({ apiUrl, backHref }: { apiUrl: string; backHref: stri
           <Descriptions.Item label={t("track.report", "上报状态")}>
             <Tag color={data?.freshness === "live" ? "green" : "default"}>{t(freshKey, data ? freshFallback[data.freshness] : "未开启")}</Tag>
           </Descriptions.Item>
-          <Descriptions.Item label={t("track.text", "文字状态")}>{data?.latest?.statusText || "-"}</Descriptions.Item>
-          <Descriptions.Item label={t("track.last", "最后上报")}>{data?.latest ? dayjs(data.latest.recordedAt).format("MM-DD HH:mm:ss") : "-"}</Descriptions.Item>
+          <Descriptions.Item label={t("track.text", "文字状态")}>
+            {data?.latest ? localizeStatusText(data.latest.statusText, t) : "-"}
+          </Descriptions.Item>
+          <Descriptions.Item label={t("track.last", "最后上报")}>
+            {data?.latest ? dayjs(data.latest.recordedAt).format("MM-DD HH:mm:ss") : "-"}
+          </Descriptions.Item>
           <Descriptions.Item label={t("form.section_origin", "起运")}>{data?.pickupAddress || "-"}</Descriptions.Item>
           <Descriptions.Item label={t("form.section_dest", "目的地")}>{data?.deliveryAddress || "-"}</Descriptions.Item>
         </Descriptions>
       </Card>
       <Card title={t("track.map", "轨迹地图")} style={{ marginBottom: 12 }} size="small">
-        {navHint ? <Alert type={data?.navSource === "osrm" ? "success" : "warning"} showIcon style={{ marginBottom: 8 }} message={navHint} /> : null}
+        {navHint ? (
+          <Alert type={data?.historyPolyline?.length || data?.navSource === "osrm" ? "success" : "warning"} showIcon style={{ marginBottom: 8 }} message={navHint} />
+        ) : null}
         <div ref={mapNode} className="track-map" style={{ height: 420, borderRadius: 8, background: "#e8eef6" }} />
         {tileFailed ? (
           <Typography.Text type="secondary" style={{ display: "block", marginTop: 8 }}>
@@ -300,7 +348,11 @@ export function TrackView({ apiUrl, backHref }: { apiUrl: string; backHref: stri
           pagination={{ pageSize: 10 }}
           columns={[
             { title: t("track.time", "时间"), dataIndex: "recordedAt", render: (value: string) => dayjs(value).format("MM-DD HH:mm:ss") },
-            { title: t("track.text", "文字状态"), dataIndex: "statusText" },
+            {
+              title: t("track.text", "文字状态"),
+              dataIndex: "statusText",
+              render: (value: string) => localizeStatusText(value, t),
+            },
             { title: t("track.coord", "坐标"), render: (_, row: Point) => `${row.lat.toFixed(5)}, ${row.lng.toFixed(5)}` },
           ]}
         />

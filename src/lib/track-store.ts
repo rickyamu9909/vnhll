@@ -1,6 +1,6 @@
 import { OrderStatus } from "@prisma/client";
 import { prisma } from "./prisma";
-import { routePolyline } from "./geo";
+import { historyTrailPolyline, routePolyline } from "./geo";
 import { TRACK_START_STAGES, cleanRecordedAt, cleanSpeed, cleanStatusText, shareOnForStatus, trackFreshness, validCoord } from "./track";
 
 const OPEN_STATUSES: OrderStatus[] = [OrderStatus.PENDING_EXECUTION, OrderStatus.IN_TRANSIT, OrderStatus.MATCHED];
@@ -121,6 +121,7 @@ export async function readOrderTrack(orderId: string) {
   const origin = order.originLat != null && order.originLng != null ? { lat: order.originLat, lng: order.originLng } : null;
   const dest = order.destLat != null && order.destLng != null ? { lat: order.destLat, lng: order.destLng } : null;
   const navPolyline = origin && dest ? await routePolyline(origin, dest) : null;
+  const trail = await historyTrailPolyline(points.map((p) => ({ lat: p.lat, lng: p.lng })));
   return {
     orderNo: order.orderNo,
     status: order.status,
@@ -135,6 +136,8 @@ export async function readOrderTrack(orderId: string) {
     dest,
     navPolyline,
     navSource: navPolyline?.length ? "osrm" : null,
+    historyPolyline: trail?.line || null,
+    historySource: trail?.source || null,
     latest: latest
       ? { ...latest, recordedAt: latest.recordedAt.toISOString(), speedKmh: latest.speedKmh }
       : null,

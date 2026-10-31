@@ -97,21 +97,25 @@ export default function AdminCustomersPage() {
           loading={loading}
           dataSource={rows}
           columns={[
-            { title: "企业", render: (_, r) => r.company?.companyName || r.displayName || "-" },
-            { title: "用户名", dataIndex: "username" },
-            { title: "联系电话", render: (_, r) => r.company?.contactPhone || r.phone || "-" },
+            { title: t("admin.company", "企业"), render: (_, r) => r.company?.companyName || r.displayName || "-" },
+            { title: t("admin.username", "用户名"), dataIndex: "username" },
+            { title: t("admin.contact_phone", "联系电话"), render: (_, r) => r.company?.contactPhone || r.phone || "-" },
             {
-              title: "状态",
+              title: t("admin.status", "状态"),
               dataIndex: "status",
-              render: (v) => <Tag color={v === "ACTIVE" ? "green" : v === "PENDING" ? "gold" : "red"}>{v}</Tag>,
+              render: (v) => (
+                <Tag color={v === "ACTIVE" ? "green" : v === "PENDING" ? "gold" : "red"}>
+                  {v === "ACTIVE" ? t("user.active", "已激活") : v === "PENDING" ? t("user.pending", "待审核") : v === "DISABLED" ? t("user.disabled", "已停用") : v}
+                </Tag>
+              ),
             },
             {
-              title: "注册时间",
+              title: t("admin.reg_at", "注册时间"),
               dataIndex: "createdAt",
               render: (v) => dayjs(v).format("YYYY-MM-DD HH:mm"),
             },
             {
-              title: "操作",
+              title: t("admin.op", "操作"),
               render: (_, r) => (
                 <Space wrap>
                   <ActionButton tone="cyan" onClick={() => openEdit(r)}>
@@ -120,14 +124,14 @@ export default function AdminCustomersPage() {
                   {r.status === "PENDING" && (
                     <>
                       <ActionButton tone="primary" onClick={() => act(r.id, "approve")}>
-                        {t("action.approve", "通过")}
+                        {t("admin.pass", "通过")}
                       </ActionButton>
                       <ActionButton
                         tone="danger"
                         onClick={() => {
-                          let reason = "资料不全";
+                          let reason = "";
                           Modal.confirm({
-                            title: "拒绝客户",
+                            title: t("admin.reject", "拒绝"),
                             content: (
                               <Input
                                 defaultValue={reason}
@@ -140,13 +144,13 @@ export default function AdminCustomersPage() {
                           });
                         }}
                       >
-                        {t("action.reject", "拒绝")}
+                        {t("admin.reject", "拒绝")}
                       </ActionButton>
                     </>
                   )}
                   {r.status === "ACTIVE" && (
                     <ActionButton tone="orange" onClick={() => act(r.id, "disable")}>
-                      停用
+                      {t("admin.disable", "停用")}
                     </ActionButton>
                   )}
                 </Space>
