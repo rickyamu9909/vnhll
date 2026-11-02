@@ -38,17 +38,19 @@ export function haversineKm(a: { lat: number; lng: number }, b: { lat: number; l
   return 2 * 6371 * Math.asin(Math.min(1, Math.sqrt(h)));
 }
 
+type TileLayerHandle = {
+  addTo: (map: unknown) => { on: (name: string, fn: () => void) => void };
+  remove?: () => void;
+};
+
 type LeafletLike = {
-  tileLayer: (url: string, options?: object) => {
-    addTo: (map: unknown) => { on: (name: string, fn: () => void) => void };
-    remove?: () => void;
-  };
+  tileLayer: (url: string, options?: object) => TileLayerHandle;
 };
 
 /** 挂载底图，瓦片连续失败时自动切下一源 */
 export function attachBaseTiles(L: LeafletLike, map: unknown, onFail?: () => void) {
   let idx = 0;
-  let layer: { remove?: () => void } | null = null;
+  let layer: TileLayerHandle | null = null;
   let errors = 0;
   const mount = () => {
     const src = MAP_TILE_SOURCES[idx];
