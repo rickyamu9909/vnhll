@@ -7,6 +7,7 @@ import { BackButton } from "@/components/BackButton";
 import { useI18n } from "@/components/I18nProvider";
 import { apiFetch, statusLabel } from "@/lib/client";
 import { localizeStatusText } from "@/lib/localize";
+import { attachBaseTiles as mountBaseTiles } from "@/lib/map-tiles";
 
 type Point = { lat: number; lng: number; speedKmh: number | null; statusText: string; recordedAt: string };
 type TrackData = {
@@ -136,58 +137,8 @@ function inVietnam(p: { lat: number; lng: number }) {
   return p.lat >= 8 && p.lat <= 24.5 && p.lng >= 102 && p.lng <= 110.5;
 }
 
-type TileLayerLike = { addTo: (map: LeafletMap) => { on: (name: string, fn: () => void) => void }; remove?: () => void };
-
 function attachBaseTiles(L: LeafletNS, map: LeafletMap, onFail: () => void) {
-  // Google 非官方瓦片常被墙/拒载导致空白；优先 OSM / Carto（越南路网可用）
-  const sources: Array<{ url: string; options: object }> = [
-    {
-      url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
-      options: {
-        maxZoom: 20,
-        subdomains: "abcd",
-        attribution: '&copy; OpenStreetMap &copy; CARTO',
-      },
-    },
-    {
-      url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-      options: {
-        maxZoom: 19,
-        attribution: '&copy; OpenStreetMap',
-      },
-    },
-    {
-      url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
-      options: {
-        maxZoom: 19,
-        attribution: "Esri",
-      },
-    },
-  ];
-  let idx = 0;
-  let layer: TileLayerLike | null = null;
-  let errors = 0;
-  const mount = () => {
-    const src = sources[idx];
-    if (!src) {
-      onFail();
-      return;
-    }
-    layer = L.tileLayer(src.url, src.options) as TileLayerLike;
-    layer.addTo(map).on("tileerror", () => {
-      errors += 1;
-      if (errors < 3) return;
-      errors = 0;
-      try {
-        layer?.remove?.();
-      } catch {
-        /* ignore */
-      }
-      idx += 1;
-      mount();
-    });
-  };
-  mount();
+  mountBaseTiles(L as unknown as Parameters<typeof mountBaseTiles>[0], map, onFail);
 }
 
 export function TrackView({ apiUrl, backHref }: { apiUrl: string; backHref: string }) {

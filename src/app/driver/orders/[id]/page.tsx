@@ -52,6 +52,7 @@ export default function DriverOrderDetail() {
   const lastStageClick = useRef<{ key: string; at: number } | null>(null);
   const [photoModal, setPhotoModal] = useState<{ stage: PhotoStage; photos: string[] } | null>(null);
   const [submittingPhotos, setSubmittingPhotos] = useState(false);
+  const [stageBusy, setStageBusy] = useState(false);
 
   const load = async () => {
     const res = await apiFetch<Detail>(`/api/driver/orders/${id}`);
@@ -68,24 +69,49 @@ export default function DriverOrderDetail() {
   }, [id]);
 
   const act = async (action: string, extra: Record<string, unknown> = {}) => {
-    const res = await apiFetch(`/api/driver/orders/${id}`, { method: "POST", body: JSON.stringify({ action, ...extra }) });
-    if (!res.ok) message.error(res.message || t("common.op_fail", "操作失败"));
-    else {
-      const tip =
-        action === "bid"
-          ? t("driver.bid_ok", "报价成功，已进入我的订单·已报价")
-          : action === "accept"
-            ? t("driver.accept_ok", "接单成功，已进入我的订单·待接货")
-            : action === "stage_cancel"
-              ? t("stage.cancel_ok", "已取消节点并记入日志")
-              : action === "stage"
-                ? t("stage.lock_ok", "节点已锁定（双击可取消）")
-                : t("action.submit", "提交");
-      message.success(tip);
-      if (action === "bid" || action === "accept") router.push("/driver/orders");
-      else load();
+    const isStage = action === "stage" || action === "stage_cancel";
+    if (isStage && stageBusy) return false;
+    const prev = order;
+    if (isStage) setStageBusy(true);
+    if (action === "stage" && typeof extra.stage === "string") {
+      setOrder((o) => (o ? { ...o, driverStage: String(extra.stage) } : o));
     }
-    return res.ok;
+    if (action === "stage_cancel") {
+      setOrder((o) => (o ? { ...o, driverStage: null } : o));
+    }
+    const res = await apiFetch<Detail>(`/api/driver/orders/${id}`, { method: "POST", body: JSON.stringify({ action, ...extra }) });
+    if (isStage) setStageBusy(false);
+    if (!res.ok) {
+      if (isStage && prev) setOrder(prev);
+      message.error(res.message || t("common.op_fail", "操作失败"));
+      return false;
+    }
+    const tip =
+      action === "bid"
+        ? t("driver.bid_ok", "报价成功，已进入我的订单·已报价")
+        : action === "accept"
+          ? t("driver.accept_ok", "接单成功，已进入我的订单·待接货")
+          : action === "stage_cancel"
+            ? t("stage.cancel_ok", "已取消节点并记入日志")
+            : action === "stage"
+              ? t("stage.lock_ok", "节点已锁定（双击可取消）")
+              : t("action.submit", "提交");
+    message.success(tip);
+    if (action === "bid" || action === "accept") router.push("/driver/orders");
+    else if (isStage && res.data) {
+      setOrder((o) =>
+        o
+          ? {
+              ...o,
+              driverStage: (res.data as Detail).driverStage ?? (action === "stage_cancel" ? null : o.driverStage),
+              status: (res.data as Detail).status || o.status,
+              pickupPhotos: (res.data as Detail).pickupPhotos ?? o.pickupPhotos,
+              deliveryPhotos: (res.data as Detail).deliveryPhotos ?? o.deliveryPhotos,
+            }
+          : o
+      );
+    } else void load();
+    return true;
   };
 
   const copyCrewLink = async () => {
@@ -236,7 +262,8 @@ export default function DriverOrderDetail() {
                       key={stage.key}
                       type={locked ? "default" : "primary"}
                       ghost={!locked}
-                      disabled={order.status === "DELIVERED" && stage.key !== "delivered" && !locked}
+                      loading={stageBusy && !locked}
+                      disabled={stageBusy || (order.status === "DELIVERED" && stage.key !== "delivered" && !locked)}
                       style={locked ? { background: "#cbd5e1", borderColor: "#94a3b8", color: "#475569" } : undefined}
                       onClick={() => onStageClick(stage.key)}
                     >
@@ -248,6 +275,8 @@ export default function DriverOrderDetail() {
                 <Button
                   danger
                   type={order.driverStage === DRIVER_ISSUE.key ? "default" : "primary"}
+                  loading={stageBusy}
+                  disabled={stageBusy}
                   style={order.driverStage === DRIVER_ISSUE.key ? { background: "#fecaca", borderColor: "#f87171" } : undefined}
                   onClick={() => onStageClick(DRIVER_ISSUE.key)}
                 >

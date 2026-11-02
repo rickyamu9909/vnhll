@@ -18,10 +18,24 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   const action = String(body.action || "");
   try {
     if (action === "stage") {
-      return jsonOk(serializeCrewOrder((await setDriverStage(order.id, null, String(body.stage || ""), body.photos, { crew: true })) as unknown as Record<string, unknown>));
+      const updated = await setDriverStage(order.id, null, String(body.stage || ""), body.photos, { crew: true });
+      return jsonOk({
+        id: updated.id,
+        status: updated.status,
+        driverStage: updated.driverStage,
+        trackShareOn: updated.trackShareOn,
+        pickupPhotos: updated.pickupPhotos,
+        deliveryPhotos: updated.deliveryPhotos,
+      });
     }
     if (action === "stage_cancel") {
-      return jsonOk(serializeCrewOrder((await cancelDriverStage(order.id, null, String(body.stage || ""), { crew: true })) as unknown as Record<string, unknown>));
+      const updated = await cancelDriverStage(order.id, null, String(body.stage || ""), { crew: true });
+      return jsonOk({
+        id: updated.id,
+        status: updated.status,
+        driverStage: updated.driverStage,
+        trackShareOn: updated.trackShareOn,
+      });
     }
     return jsonFail("未知操作");
   } catch (e) {

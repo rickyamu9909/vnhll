@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Alert, Button, Space, Typography } from "antd";
 import { useI18n } from "@/components/I18nProvider";
+import { attachBaseTiles, haversineKm, inVietnamBBox } from "@/lib/map-tiles";
 
 type Props = {
   destLat?: number | null;
@@ -47,9 +48,11 @@ export function DriverNavMap({ destLat, destLng, destAddress, title, autoStart =
   const { t } = useI18n();
   const ref = useRef<HTMLDivElement>(null);
   const [error, setError] = useState("");
+  const [warn, setWarn] = useState("");
   const [open, setOpen] = useState(autoStart);
   const [pos, setPos] = useState<{ lat: number; lng: number } | null>(null);
   const [eta, setEta] = useState("");
+  const [tileFail, setTileFail] = useState(false);
 
   useEffect(() => {
     if (!open || !ref.current) return;
@@ -58,26 +61,59 @@ export function DriverNavMap({ destLat, destLng, destAddress, title, autoStart =
     let meMarker: any;
     let routeLine: any;
     let cancelled = false;
+    let lastRouteAt = 0;
+    let lastRouteFrom: { lat: number; lng: number } | null = null;
+    let routeBusy = false;
 
     (async () => {
       try {
         const L = await loadLeaflet();
         if (cancelled || !ref.current) return;
-        map = L.map(ref.current).setView([10.77, 106.7], 12);
-        L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
-          maxZoom: 20,
-          subdomains: "abcd",
-          attribution: "&copy; OpenStreetMap &copy; CARTO",
-        }).addTo(map);
-
         const dest = destLat != null && destLng != null ? { lat: destLat, lng: destLng } : null;
+        const center = dest && inVietnamBBox(dest.lat, dest.lng) ? [dest.lat, dest.lng] : [10.77, 106.7];
+        map = L.map(ref.current, { preferCanvas: true }).setView(center, 12);
+        attachBaseTiles(L, map, () => setTileFail(true));
+
         if (dest) L.marker([dest.lat, dest.lng]).addTo(map).bindPopup(destAddress || title);
 
-        const drawRoute = async (from: { lat: number; lng: number }, to: { lat: number; lng: number }) => {
+        const drawRoute = async (from: { lat: number; lng: number }, to: { lat: number; lng: number }, force = false) => {
+          const now = Date.now();
+          const movedKm = lastRouteFrom ? haversineKm(lastRouteFrom, from) : 999;
+          // 最多约 45 秒或移动超过 400m 才重算；避免每次 GPS 回调都打公共 OSRM 卡死页面
+          if (!force && routeBusy) return;
+          if (!force && now - lastRouteAt < 45000 && movedKm < 0.4) return;
+
+          if (!inVietnamBBox(from.lat, from.lng) || !inVietnamBBox(to.lat, to.lng)) {
+            setWarn(t("nav.gps_vn", "当前定位不在越南境内，已只显示终点标记，请检查手机定位或到现场后再导航。"));
+            setEta("");
+            map.fitBounds(
+              L.latLngBounds([
+                [from.lat, from.lng],
+                [to.lat, to.lng],
+              ]),
+              { padding: [40, 40], maxZoom: 8 }
+            );
+            return;
+          }
+
+          const straight = haversineKm(from, to);
+          if (straight > 800) {
+            setWarn(t("nav.too_far", "起终点过远，已跳过路网规划，仅显示标记。"));
+            setEta(t("nav.straight", "直线约 {km} 公里").replace("{km}", String(Math.round(straight))));
+            return;
+          }
+
+          routeBusy = true;
+          lastRouteAt = now;
+          lastRouteFrom = from;
           try {
-            const url = `https://router.project-osrm.org/route/v1/driving/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson`;
-            const res = await fetch(url);
+            const ctrl = new AbortController();
+            const timer = window.setTimeout(() => ctrl.abort(), 8000);
+            const url = `https://router.project-osrm.org/route/v1/driving/${from.lng},${from.lat};${to.lng},${to.lat}?overview=simplified&geometries=geojson`;
+            const res = await fetch(url, { signal: ctrl.signal });
+            window.clearTimeout(timer);
             const data = await res.json();
+            if (cancelled) return;
             const route = data.routes?.[0];
             const coords = route?.geometry?.coordinates;
             if (!coords) return;
@@ -85,11 +121,19 @@ export function DriverNavMap({ destLat, destLng, destAddress, title, autoStart =
             if (routeLine) map.removeLayer(routeLine);
             routeLine = L.polyline(latlngs, { color: "#2563eb", weight: 5 }).addTo(map);
             map.fitBounds(routeLine.getBounds(), { padding: [24, 24] });
+            setWarn("");
             const km = Math.round((route.distance / 1000) * 10) / 10;
             const min = Math.max(1, Math.round((route.duration / 60) * 1.35));
-            setEta(t("nav.eta", "距{dest}约 {km} 公里 · {min} 分钟（越南路况）").replace("{dest}", title).replace("{km}", String(km)).replace("{min}", String(min)));
+            setEta(
+              t("nav.eta", "距{dest}约 {km} 公里 · {min} 分钟（越南路况）")
+                .replace("{dest}", title)
+                .replace("{km}", String(km))
+                .replace("{min}", String(min))
+            );
           } catch {
-            /* ignore */
+            setWarn(t("nav.route_slow", "路网规划超时或不可用，已显示当前位置与终点。"));
+          } finally {
+            routeBusy = false;
           }
         };
 
@@ -108,12 +152,15 @@ export function DriverNavMap({ destLat, destLng, destAddress, title, autoStart =
                 fillColor: "#22c55e",
                 fillOpacity: 0.9,
               }).addTo(map);
-            } else meMarker.setLatLng([here.lat, here.lng]);
-            if (dest) void drawRoute(here, dest);
-            else map.setView([here.lat, here.lng], 14);
+              if (dest) void drawRoute(here, dest, true);
+              else map.setView([here.lat, here.lng], 14);
+            } else {
+              meMarker.setLatLng([here.lat, here.lng]);
+              if (dest) void drawRoute(here, dest, false);
+            }
           },
           () => setError(t("nav.geo_fail", "定位失败，请允许位置权限后重试")),
-          { enableHighAccuracy: true, maximumAge: 3000, timeout: 15000 }
+          { enableHighAccuracy: false, maximumAge: 15000, timeout: 12000 }
         );
       } catch {
         setError(t("nav.map_fail", "地图加载失败"));
@@ -142,6 +189,8 @@ export function DriverNavMap({ destLat, destLng, destAddress, title, autoStart =
           type="primary"
           onClick={() => {
             setError("");
+            setWarn("");
+            setTileFail(false);
             setOpen(true);
           }}
         >
@@ -154,13 +203,21 @@ export function DriverNavMap({ destLat, destLng, destAddress, title, autoStart =
             {t("nav.collapse", "收起")}
           </Button>
         ) : null}
-        <Button href={gmaps} target="_blank" style={{ background: "#0ea5e9", borderColor: "#0ea5e9", color: "#fff" }}>
+        <Button href={gmaps} target="_blank" rel="noopener noreferrer" style={{ background: "#0ea5e9", borderColor: "#0ea5e9", color: "#fff" }}>
           {t("nav.google", "用谷歌地图打开")}
         </Button>
       </Space>
       {open ? (
         <div style={{ marginTop: 8 }}>
           {error ? <Alert type="warning" showIcon message={error} style={{ marginBottom: 8 }} /> : null}
+          {warn ? <Alert type="info" showIcon message={warn} style={{ marginBottom: 8 }} /> : null}
+          {tileFail ? <Alert type="warning" showIcon message={t("track.tile_fail", "底图加载失败，已切换备用图层")} style={{ marginBottom: 8 }} /> : null}
+          <Alert
+            type="info"
+            showIcon
+            style={{ marginBottom: 8 }}
+            message={t("nav.report_tip", "页内导航可继续位置上报；跳到谷歌地图或切走浏览器后，上报会暂停，请尽快回到本页。")}
+          />
           {eta ? (
             <Typography.Text type="secondary">{eta}</Typography.Text>
           ) : (

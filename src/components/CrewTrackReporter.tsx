@@ -12,12 +12,13 @@ const STATUS_KEYS = ["track.going", "track.picked", "track.moving", "track.unloa
 
 export function CrewTrackReporter({ token }: { token: string }) {
   const { t } = useI18n();
-  const [phase, setPhase] = useState<"empty" | "need" | "on" | "denied">("empty");
+  const [phase, setPhase] = useState<"empty" | "need" | "on" | "denied" | "paused">("empty");
   const [orders, setOrders] = useState<ActiveOrder[]>([]);
   const [statusKey, setStatusKey] = useState<(typeof STATUS_KEYS)[number]>("track.moving");
   const statusRef = useRef(statusKey);
   statusRef.current = statusKey;
   const queueKey = `ants_crew_track_queue_${token}`;
+  const kickRef = useRef<(() => void) | null>(null);
 
   const readQueue = (): Queued[] => {
     try {
@@ -46,6 +47,11 @@ export function CrewTrackReporter({ token }: { token: string }) {
     };
 
     const run = async () => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+        setPhase((p) => (p === "empty" ? p : "paused"));
+        schedule(15000);
+        return;
+      }
       const res = await apiFetch<ActiveOrder[]>(`/api/crew/${token}/tracking`);
       const active = res.ok ? res.data || [] : [];
       if (stopped) return;
@@ -91,23 +97,41 @@ export function CrewTrackReporter({ token }: { token: string }) {
       );
     };
 
+    kickRef.current = () => {
+      window.clearTimeout(timer);
+      void run();
+    };
     run();
+
+    const onVis = () => {
+      if (document.visibilityState === "visible") kickRef.current?.();
+    };
+    document.addEventListener("visibilitychange", onVis);
+
     return () => {
       stopped = true;
       window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVis);
+      kickRef.current = null;
     };
   }, [t, token]);
 
-  if (phase === "empty" || orders.length === 0) return null;
+  if (phase === "empty" || (orders.length === 0 && phase !== "paused")) return null;
 
   return (
     <Alert
       style={{ marginBottom: 12 }}
-      type={phase === "denied" ? "warning" : "info"}
+      type={phase === "denied" || phase === "paused" ? "warning" : "info"}
       message={
         <Space wrap>
           <Typography.Text strong>
-            {phase === "on" ? t("track.reporting", "轨迹自动上报中") : phase === "denied" ? t("track.denied", "定位权限被拒绝") : t("track.waiting", "正在获取位置")}
+            {phase === "on"
+              ? t("track.reporting", "轨迹自动上报中")
+              : phase === "paused"
+                ? t("track.paused", "页面在后台，位置上报已暂停")
+                : phase === "denied"
+                  ? t("track.denied", "定位权限被拒绝")
+                  : t("track.waiting", "正在获取位置")}
           </Typography.Text>
           <span>{orders.map((order) => order.orderNo).join("、")}</span>
           <Select
@@ -117,7 +141,9 @@ export function CrewTrackReporter({ token }: { token: string }) {
             onChange={setStatusKey}
             options={STATUS_KEYS.map((key) => ({ value: key, label: t(key, key) }))}
           />
-          <Typography.Text type="secondary">{t("track.keep_open", "已点「前往提货」后持续上报（约 30 秒一次）。请保持本页打开；关掉浏览器会停止。")}</Typography.Text>
+          <Typography.Text type="secondary">
+            {t("track.keep_open", "已点「前往提货」后持续上报（约 30 秒一次）。请保持本页打开；关掉浏览器会停止。")}
+          </Typography.Text>
         </Space>
       }
     />

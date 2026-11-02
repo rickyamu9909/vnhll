@@ -49,6 +49,7 @@ export default function CrewTrackPage() {
   const lastStageClick = useRef<{ key: string; at: number } | null>(null);
   const [photoModal, setPhotoModal] = useState<{ stage: PhotoStage; photos: string[] } | null>(null);
   const [submittingPhotos, setSubmittingPhotos] = useState(false);
+  const [stageBusy, setStageBusy] = useState(false);
 
   const load = async () => {
     const res = await apiFetch<Detail>(`/api/crew/${token}`);
@@ -66,13 +67,25 @@ export default function CrewTrackPage() {
   }, [token]);
 
   const act = async (action: string, extra: Record<string, unknown> = {}) => {
-    const res = await apiFetch(`/api/crew/${token}`, { method: "POST", body: JSON.stringify({ action, ...extra }) });
-    if (!res.ok) message.error(res.message || t("common.op_fail", "操作失败"));
-    else {
-      message.success(action === "stage_cancel" ? t("stage.cancel_ok", "已取消节点并记入日志") : t("stage.lock_ok", "节点已锁定（双击可取消）"));
-      await load();
+    if (stageBusy) return false;
+    setStageBusy(true);
+    const prev = order;
+    if (action === "stage" && typeof extra.stage === "string") {
+      setOrder((o) => (o ? { ...o, driverStage: String(extra.stage) } : o));
     }
-    return res.ok;
+    if (action === "stage_cancel") {
+      setOrder((o) => (o ? { ...o, driverStage: null } : o));
+    }
+    const res = await apiFetch<Detail>(`/api/crew/${token}`, { method: "POST", body: JSON.stringify({ action, ...extra }) });
+    setStageBusy(false);
+    if (!res.ok) {
+      if (prev) setOrder(prev);
+      message.error(res.message || t("common.op_fail", "操作失败"));
+      return false;
+    }
+    if (res.data) setOrder((o) => ({ ...(o || {}), ...res.data! }));
+    message.success(action === "stage_cancel" ? t("stage.cancel_ok", "已取消节点并记入日志") : t("stage.lock_ok", "节点已锁定（双击可取消）"));
+    return true;
   };
 
   const openPhotoStage = (stage: PhotoStage) => {
@@ -189,25 +202,28 @@ export default function CrewTrackPage() {
               {t("stage.help", "单击锁定节点。「前往提货」后开始持续上报位置；「已提货 / 已送达」需上传照片。已锁定按钮置灰，双击可取消并记日志。")}
             </Typography.Paragraph>
             <Space wrap>
-              {DRIVER_STAGES.map((stage) => {
-                const locked = order.driverStage === stage.key;
-                return (
-                  <Button
-                    key={stage.key}
-                    type={locked ? "default" : "primary"}
-                    ghost={!locked}
-                    disabled={order.status === "DELIVERED" && stage.key !== "delivered" && !locked}
-                    style={locked ? { background: "#cbd5e1", borderColor: "#94a3b8", color: "#475569" } : undefined}
-                    onClick={() => onStageClick(stage.key)}
-                  >
-                    {stageLabel(stage.key, t)}
-                    {locked ? t("common.locked", "（已锁定）") : ""}
-                  </Button>
-                );
-              })}
+                {DRIVER_STAGES.map((stage) => {
+                  const locked = order.driverStage === stage.key;
+                  return (
+                    <Button
+                      key={stage.key}
+                      type={locked ? "default" : "primary"}
+                      ghost={!locked}
+                      loading={stageBusy && !locked}
+                      disabled={stageBusy || (order.status === "DELIVERED" && stage.key !== "delivered" && !locked)}
+                      style={locked ? { background: "#cbd5e1", borderColor: "#94a3b8", color: "#475569" } : undefined}
+                      onClick={() => onStageClick(stage.key)}
+                    >
+                      {stageLabel(stage.key, t)}
+                      {locked ? t("common.locked", "（已锁定）") : ""}
+                    </Button>
+                  );
+                })}
               <Button
                 danger
                 type={order.driverStage === DRIVER_ISSUE.key ? "default" : "primary"}
+                loading={stageBusy}
+                disabled={stageBusy}
                 style={order.driverStage === DRIVER_ISSUE.key ? { background: "#fecaca", borderColor: "#f87171" } : undefined}
                 onClick={() => onStageClick(DRIVER_ISSUE.key)}
               >
