@@ -4,7 +4,7 @@ import { getSession, requireCarrier } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { jsonFail, jsonOk } from "@/lib/api";
 import { serializeMoney, toBigIntMoney } from "@/lib/money";
-import { acceptPathA, advanceOrder, assignSub, cancelDriverStage, placeBid, setDriverStage, sweepDeadlines } from "@/lib/market";
+import { acceptPathA, advanceOrder, assignSub, cancelDriverStage, placeBid, releaseAcceptedOrder, setDriverStage, sweepDeadlines } from "@/lib/market";
 
 type Ctx = { params: { id: string } };
 
@@ -50,6 +50,9 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     if (action === "advance") return jsonOk(await advanceOrder(params.id, user!.id, false));
     if (action === "stage") return jsonOk(await setDriverStage(params.id, user!.id, String(body.stage || ""), body.photos));
     if (action === "stage_cancel") return jsonOk(await cancelDriverStage(params.id, user!.id, String(body.stage || "")));
+    if (action === "release") {
+      return jsonOk(await releaseAcceptedOrder(params.id, user!.id, { reason: body.reason ? String(body.reason) : undefined }));
+    }
     return jsonFail("未知操作");
   } catch (e) {
     return jsonFail((e as Error).message || "操作失败");

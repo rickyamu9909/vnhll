@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Alert, Button, Card, Descriptions, Form, InputNumber, Modal, Select, Space, Typography, message } from "antd";
+import { Alert, Button, Card, Descriptions, Form, Input, InputNumber, Modal, Select, Space, Typography, message } from "antd";
 import { DriverShell } from "@/components/DriverShell";
 import { BackButton } from "@/components/BackButton";
 import { MultiPhotoPicker } from "@/components/MultiPhotoPicker";
@@ -95,9 +95,11 @@ export default function DriverOrderDetail() {
             ? t("stage.cancel_ok", "已取消节点并记入日志")
             : action === "stage"
               ? t("stage.lock_ok", "节点已锁定（双击可取消）")
-              : t("action.submit", "提交");
+              : action === "release"
+                ? t("driver.release_ok", "已取消履约，订单已退回匹配大厅")
+                : t("action.submit", "提交");
     message.success(tip);
-    if (action === "bid" || action === "accept") router.push("/driver/orders");
+    if (action === "bid" || action === "accept" || action === "release") router.push("/driver/orders");
     else if (isStage && res.data) {
       setOrder((o) =>
         o
@@ -112,6 +114,34 @@ export default function DriverOrderDetail() {
       );
     } else void load();
     return true;
+  };
+
+  const releaseOrder = () => {
+    let reason = "";
+    Modal.confirm({
+      title: t("driver.release_title", "确认取消履约？"),
+      content: (
+        <div>
+          <Typography.Paragraph type="secondary">
+            {t("driver.release_body", "取消后订单将退回匹配大厅，客户无需重新建单。其他车队可再次接单。")}
+          </Typography.Paragraph>
+          <Input.TextArea
+            rows={3}
+            placeholder={t("driver.release_reason_ph", "取消原因（客户可见，选填）")}
+            onChange={(e) => {
+              reason = e.target.value;
+            }}
+          />
+        </div>
+      ),
+      okText: t("driver.release_ok_btn", "确认取消履约"),
+      okButtonProps: { danger: true },
+      cancelText: t("action.cancel", "取消"),
+      onOk: async () => {
+        const ok = await act("release", { reason: reason.trim() || undefined });
+        if (!ok) return Promise.reject();
+      },
+    });
   };
 
   const copyCrewLink = async () => {
@@ -188,6 +218,11 @@ export default function DriverOrderDetail() {
           {order.orderNo}
         </Typography.Title>
         <Button onClick={() => void copyCrewLink()}>{t("crew.copy_link", "复制司机跟踪链接")}</Button>
+        {["PENDING_EXECUTION", "MATCHED"].includes(order.status) ? (
+          <Button danger onClick={releaseOrder}>
+            {t("driver.release", "取消履约（退回大厅）")}
+          </Button>
+        ) : null}
       </Space>
       {order.myBidPriceVnd ? <Alert type="success" showIcon style={{ marginBottom: 12 }} message={t("driver.bid_banner", "本单已进入「我的订单 · 已报价」，不会再出现在货源大厅。")} /> : null}
       <Card>

@@ -189,6 +189,40 @@ export default function AdminOrderDetailPage() {
           <Button type="primary" icon={<CopyOutlined />} onClick={copyNotify}>
             {t("action.copy_notify", "复制通知消息")}
           </Button>
+          {["PENDING_EXECUTION", "MATCHED", "IN_TRANSIT"].includes(order.status) ? (
+            <Button
+              danger
+              loading={loading}
+              onClick={() => {
+                let reason = "";
+                Modal.confirm({
+                  title: t("admin.release_title", "退回匹配大厅？"),
+                  content: (
+                    <div>
+                      <Typography.Paragraph type="secondary">
+                        {t("admin.release_body", "清除当前承运方，订单重新进入匹配；客户无需建新单。")}
+                      </Typography.Paragraph>
+                      <Input.TextArea
+                        rows={3}
+                        placeholder={t("driver.release_reason_ph", "取消原因（客户可见，选填）")}
+                        onChange={(e) => {
+                          reason = e.target.value;
+                        }}
+                      />
+                    </div>
+                  ),
+                  okText: t("admin.release_ok", "确认退回"),
+                  okButtonProps: { danger: true },
+                  onOk: async () => {
+                    const ok = await patch("release", { reason: reason.trim() || undefined });
+                    if (!ok) return Promise.reject();
+                  },
+                });
+              }}
+            >
+              {t("admin.release", "退回匹配")}
+            </Button>
+          ) : null}
           {order.status === "MATCHED" && (
             <Button loading={loading} onClick={() => patch("set_status", { status: "IN_TRANSIT" })}>
               标记运输中

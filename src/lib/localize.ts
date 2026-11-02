@@ -12,6 +12,7 @@ const NOTICE_TITLE_KEYS: Array<{ match: RegExp | string; key: string; zh: string
   { match: "注册已通过", key: "notice.title.reg_ok", zh: "注册已通过" },
   { match: "注册未通过", key: "notice.title.reg_no", zh: "注册未通过" },
   { match: "协商", key: "notice.title.neg", zh: "运力协商" },
+  { match: "承运方取消履约", key: "notice.title.carrier_release", zh: "承运方取消履约" },
 ];
 
 const STATUS_TEXT_MAP: Record<string, string> = {
@@ -67,6 +68,8 @@ export function localizeNoticeBody(body: string, t: TFn) {
     [/请在\s*\d+\s*分钟内确认[。.]?/g, t("notice.body.confirm_soon", "Vui lòng xác nhận trong 30 phút")],
     [/请点击确认完成撮合[。.]?/g, t("notice.body.click_confirm", "Vui lòng bấm xác nhận để hoàn tất ghép")],
     [/请到订单详情确认[。.]?/g, t("notice.body.go_order", "Vào chi tiết đơn để xác nhận")],
+    [/承运方已取消，已重新进入匹配，无需重新建单[。.]?/g, t("notice.body.carrier_release", "Bên vận chuyển đã hủy; đơn đã vào lại ghép, không cần tạo đơn mới.")],
+    [/原因：/g, `${t("order.release_reason", "Lý do")}：`],
     [/的顺路匹配已超过有效期/g, t("notice.body.suggest_expired", "ghép thuận đường đã hết hạn")],
     [/你的账号已激活，可以登录[。.]?/g, t("notice.body.account_active", "Tài khoản đã kích hoạt, có thể đăng nhập.")],
     [/空车距装货点约\s*([\d.]+)\s*公里，尚可赶到/g, `${t("notice.body.cap_near", "Xe trống cách điểm lấy khoảng")} $1 ${t("notice.body.km", "km")}, ${t("notice.body.can_make", "vẫn kịp đến")}`],

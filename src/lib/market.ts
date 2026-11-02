@@ -284,6 +284,7 @@ function settled(price: bigint, bps: number) {
     trackShareOn: false,
     auditDeadline: null as Date | null,
     rejectReason: null as string | null,
+    notifyNote: null as string | null,
     ...moneyFields(price, bps),
   };
 }
@@ -709,6 +710,104 @@ export async function cancelOrder(orderId: string, customerId: string) {
       statusLogs: { create: { fromStatus: order.status, toStatus: OrderStatus.CANCELLED, note: "客户取消", operatorId: customerId } },
     },
   });
+}
+
+/**
+ * 车队/管理端取消已成交履约：原单回到 OPEN 匹配大厅，无需客户重新建单。
+ * 司机：仅待执行/已匹配；管理端：另可退回运输中（未送达）。
+ */
+export async function releaseAcceptedOrder(
+  orderId: string,
+  actorId: string,
+  opts?: { reason?: string; asAdmin?: boolean }
+) {
+  const order = await prisma.order.findUnique({ where: { id: orderId } });
+  if (!order) throw new Error("订单不存在");
+
+  const allowed: OrderStatus[] = [OrderStatus.PENDING_EXECUTION, OrderStatus.MATCHED];
+  if (opts?.asAdmin) allowed.push(OrderStatus.IN_TRANSIT);
+  if (!allowed.includes(order.status)) throw new Error("当前状态不可取消履约回大厅");
+  if (order.status === OrderStatus.IN_TRANSIT && (order.driverStage === "delivered" || order.driverStage === "picked")) {
+    throw new Error("已提货/已送达后不可退回匹配，请联系平台处理");
+  }
+
+  if (!opts?.asAdmin) {
+    const actor = await prisma.user.findUnique({ where: { id: actorId } });
+    if (!actor || (actor.role !== "CARRIER_MAIN" && actor.role !== "CARRIER_SUB")) {
+      throw new Error("无权取消该订单履约");
+    }
+    const owners = [order.acceptedByUserId, order.assignedToUserId].filter(Boolean) as string[];
+    let allowedActor = owners.includes(actorId);
+    if (!allowedActor && actor.role === "CARRIER_MAIN") {
+      const subs = await prisma.user.findMany({ where: { parentUserId: actorId }, select: { id: true } });
+      const subIds = new Set(subs.map((s) => s.id));
+      allowedActor = owners.some((id) => id === actorId || subIds.has(id));
+    }
+    if (!allowedActor) throw new Error("无权取消该订单履约");
+  }
+
+  const reason = (opts?.reason || "").trim() || (opts?.asAdmin ? "平台取消履约回大厅" : "车队临时取消");
+  const cfg = await getConfig();
+  const deadlines = buildDeadlines(new Date(), order.pickupAt, cfg);
+  let matchPath = order.matchPath;
+  if (matchPath === MatchPath.C) {
+    matchPath = order.targetPriceVnd ? MatchPath.A : MatchPath.B;
+  }
+  const capacityId = order.capacityId;
+
+  const updated = await prisma.$transaction(async (tx) => {
+    if (capacityId) {
+      await tx.capacity.updateMany({
+        where: { id: capacityId, status: "MATCHED" },
+        data: { status: "OPEN" },
+      });
+    }
+    return tx.order.update({
+      where: { id: orderId },
+      data: {
+        status: OrderStatus.OPEN,
+        matchPath,
+        publishRound: order.publishRound + 1,
+        acceptedByUserId: null,
+        assignedToUserId: null,
+        matchedDriverId: null,
+        capacityId: null,
+        dealPriceVnd: null,
+        platformFeeVnd: null,
+        driverIncomeVnd: null,
+        confirmDeadline: null,
+        auditDeadline: null,
+        waitDeadline: deadlines.waitDeadline,
+        bidDeadline: deadlines.bidDeadline,
+        extendCount: 0,
+        trackShareOn: false,
+        driverStage: null,
+        crewTrackToken: null,
+        pickupPhotos: null,
+        deliveryPhotos: null,
+        rejectReason: null,
+        notifyNote: reason,
+        statusLogs: {
+          create: {
+            fromStatus: order.status,
+            toStatus: OrderStatus.OPEN,
+            note: `履约取消回大厅：${reason}`,
+            operatorId: actorId,
+          },
+        },
+      },
+    });
+  });
+
+  await notify(
+    order.customerId,
+    "承运方取消履约",
+    `订单 ${order.orderNo} 承运方已取消，已重新进入匹配，无需重新建单。原因：${reason}`,
+    { href: `/orders/${order.id}` }
+  );
+  await logOp(actorId, opts?.asAdmin ? "ORDER_RELEASE_ADMIN" : "ORDER_RELEASE", "order", orderId, reason);
+  void locateAndSuggestOrder(orderId).catch((error) => console.error("suggest-order", error));
+  return updated;
 }
 
 export async function customerRevise(orderId: string, customerId: string, body: Record<string, unknown>) {

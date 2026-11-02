@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import { Card, Descriptions, Modal, Space, Steps, Table, Tag, Typography, message } from "antd";
+import { Alert, Card, Descriptions, Modal, Space, Steps, Table, Tag, Typography, message } from "antd";
 import dayjs from "dayjs";
 import { ActionButton } from "@/components/ActionButton";
 import { CustomerShell } from "@/components/CustomerShell";
@@ -31,6 +31,7 @@ type OrderDetail = {
   vehicleType: string;
   customerBidVnd: string;
   rejectReason?: string | null;
+  notifyNote?: string | null;
   matchPath?: string | null;
   targetPriceVnd?: string | null;
   dealPriceVnd?: string | null;
@@ -133,6 +134,15 @@ function OrderDetailInner() {
           {t("order.order_no", "订单号")}：{order.orderNo}
         </Typography.Title>
       </Space>
+      {order.status === "OPEN" && order.notifyNote ? (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 12 }}
+          message={t("order.release_alert", "承运方已取消履约，订单已重新进入匹配，无需重新建单。")}
+          description={`${t("order.release_reason", "原因")}：${order.notifyNote}`}
+        />
+      ) : null}
       {fresh && order.status === "OPEN" ? (
         <PostPublishGuide
           orderId={order.id}

@@ -4,7 +4,7 @@ import { getSession, requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { jsonFail, jsonOk } from "@/lib/api";
 import { calcCommission, serializeMoney, toBigIntMoney } from "@/lib/money";
-import { advanceOrder, auditOrder } from "@/lib/market";
+import { advanceOrder, auditOrder, releaseAcceptedOrder } from "@/lib/market";
 import { buildDriverNotifyMessage } from "@/lib/notify";
 import { ORDER_STATUS_FLOW } from "@/lib/order";
 import { shareOnForStatus } from "@/lib/track";
@@ -218,6 +218,18 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       platformFeeVnd: updated.platformFeeVnd?.toString(),
       driverIncomeVnd: updated.driverIncomeVnd?.toString(),
     });
+  }
+
+  if (action === "release") {
+    try {
+      const updated = await releaseAcceptedOrder(params.id, user!.id, {
+        asAdmin: true,
+        reason: body.reason ? String(body.reason) : undefined,
+      });
+      return jsonOk(serializeMoney(updated as unknown as Record<string, unknown>));
+    } catch (e) {
+      return jsonFail((e as Error).message || "退回匹配失败");
+    }
   }
 
   if (action === "set_status") {
