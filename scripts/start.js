@@ -10,7 +10,10 @@ async function main() {
   const port = process.env.PORT || "8080";
   console.log(`[ANTS] boot start, PORT=${port}`);
 
-  run("npx", ["prisma", "db", "push", "--skip-generate"]);
+  if (!run("npx", ["prisma", "db", "push", "--skip-generate", "--accept-data-loss"])) {
+    console.error("[ANTS] prisma db push failed");
+    process.exit(1);
+  }
 
   console.log("[ANTS] seeding...");
   const seedOk = run("node", ["prisma/seed.js"]);
