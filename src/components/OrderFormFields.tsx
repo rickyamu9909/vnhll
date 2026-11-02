@@ -222,7 +222,7 @@ function AddressBook({ side, userId }: { side: "origin" | "dest"; userId?: strin
 
 export function OrderFormFields({ addressUserId, addressMode = "self" }: { addressUserId?: string; addressMode?: "self" | "customer" }) {
   const { t } = useI18n();
-  const vehicleOptions = ["TON_1_5", "TON_3_5", "TON_7", "TON_10", "OTHER"].map((v) => ({
+  const vehicleOptions = ["TON_1", "TON_2", "TON_5", "TON_1_5", "TON_3_5", "TON_7", "TON_8", "TON_10", "TON_15", "OTHER"].map((v) => ({
     value: v,
     label: vehicleLabel(v, t),
   }));

@@ -76,10 +76,18 @@ export async function GET(req: NextRequest) {
   }
   if (vehicle) {
     const types = new Set((Object.values(VehicleType) as string[]).filter((item) => item.toLowerCase().includes(vehicle.toLowerCase())));
-    if (vehicle.includes("1.5")) types.add(VehicleType.TON_1_5);
-    if (vehicle.includes("3.5")) types.add(VehicleType.TON_3_5);
-    if (vehicle.includes("7")) types.add(VehicleType.TON_7);
-    if (vehicle.includes("10")) types.add(VehicleType.TON_10);
+    const text = vehicle.toLowerCase();
+    if (text.includes("1.5") || text.includes("1,5")) types.add(VehicleType.TON_1_5);
+    if (text.includes("3.5") || text.includes("3,5")) types.add(VehicleType.TON_3_5);
+    if (/\b15\b|15吨|15\s*t/.test(text)) types.add(VehicleType.TON_15);
+    if (/\b10\b|10吨|10\s*t/.test(text)) types.add(VehicleType.TON_10);
+    if (/\b8\b|8吨|8\s*t/.test(text)) types.add(VehicleType.TON_8);
+    if (/\b7\b|7吨|7\s*t/.test(text)) types.add(VehicleType.TON_7);
+    if (/\b5\b|5吨|5\s*t/.test(text)) types.add(VehicleType.TON_5);
+    if (/\b2\b|2吨|2\s*t/.test(text)) types.add(VehicleType.TON_2);
+    if ((/\b1\b|1吨|1\s*t/.test(text) || text === "1") && !text.includes("1.5") && !text.includes("1,5") && !text.includes("10") && !text.includes("15")) {
+      types.add(VehicleType.TON_1);
+    }
     if (types.size) and.push({ vehicleType: { in: [...types] as VehicleType[] } });
   }
   if (dateFrom || dateTo) {

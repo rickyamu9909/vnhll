@@ -89,6 +89,53 @@ export async function saveTrackReports(
   return { saved, rejected };
 }
 
+/** 外勤跟踪链接：仅允许写入该 token 对应订单 */
+export async function saveCrewTrackReports(
+  orderId: string,
+  reports: Array<{ orderId?: unknown; lat?: unknown; lng?: unknown; speedKmh?: unknown; statusText?: unknown; recordedAt?: unknown }>
+) {
+  let saved = 0;
+  const rejected: string[] = [];
+  for (const report of reports.slice(0, 50)) {
+    const reportOrderId = String(report.orderId || orderId);
+    const coord = validCoord(report.lat, report.lng);
+    const recordedAt = cleanRecordedAt(report.recordedAt);
+    if (reportOrderId !== orderId || !coord || !recordedAt) {
+      rejected.push(reportOrderId || "bad-point");
+      continue;
+    }
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      select: { id: true, status: true, trackShareOn: true, driverStage: true },
+    });
+    const stageOk = !!order?.driverStage && ([...ACTIVE_STAGES, "issue"] as string[]).includes(order.driverStage);
+    if (!order || !order.trackShareOn || !shareOnForStatus(order.status) || !stageOk) {
+      rejected.push(orderId);
+      continue;
+    }
+    const duplicate = await prisma.orderTrackPoint.findFirst({
+      where: {
+        orderId,
+        recordedAt: { gte: new Date(recordedAt.getTime() - 5000), lte: new Date(recordedAt.getTime() + 5000) },
+      },
+      select: { id: true },
+    });
+    if (duplicate) continue;
+    await prisma.orderTrackPoint.create({
+      data: {
+        orderId,
+        lat: coord.lat,
+        lng: coord.lng,
+        speedKmh: cleanSpeed(report.speedKmh),
+        statusText: cleanStatusText(report.statusText),
+        recordedAt,
+      },
+    });
+    saved += 1;
+  }
+  return { saved, rejected };
+}
+
 export async function readOrderTrack(orderId: string) {
   const order = await prisma.order.findUnique({
     where: { id: orderId },

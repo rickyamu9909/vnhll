@@ -88,6 +88,20 @@ export default function DriverOrderDetail() {
     return res.ok;
   };
 
+  const copyCrewLink = async () => {
+    const res = await apiFetch<{ url: string }>(`/api/driver/orders/${id}/crew-link`, { method: "POST" });
+    if (!res.ok || !res.data?.url) {
+      message.error(res.message || t("crew.copy_fail", "复制跟踪链接失败"));
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(res.data.url);
+      message.success(t("crew.copied", "已复制司机跟踪链接（无价格）"));
+    } catch {
+      message.info(res.data.url);
+    }
+  };
+
   const openPhotoStage = (stage: PhotoStage) => {
     const existing = stage === "picked" ? parseProofPhotos(order?.pickupPhotos) : parseProofPhotos(order?.deliveryPhotos);
     setPhotoModal({ stage, photos: existing });
@@ -142,11 +156,12 @@ export default function DriverOrderDetail() {
 
   return (
     <DriverShell>
-      <Space style={{ marginBottom: 16 }}>
+      <Space style={{ marginBottom: 16 }} wrap>
         <BackButton href={order.myBidPriceVnd ? "/driver/orders" : "/driver"} />
         <Typography.Title level={3} style={{ margin: 0 }}>
           {order.orderNo}
         </Typography.Title>
+        <Button onClick={() => void copyCrewLink()}>{t("crew.copy_link", "复制司机跟踪链接")}</Button>
       </Space>
       {order.myBidPriceVnd ? <Alert type="success" showIcon style={{ marginBottom: 12 }} message={t("driver.bid_banner", "本单已进入「我的订单 · 已报价」，不会再出现在货源大厅。")} /> : null}
       <Card>

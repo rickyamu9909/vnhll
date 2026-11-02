@@ -29,10 +29,15 @@ enum DriverStatus {
 }
 
 enum VehicleType {
+  TON_1
+  TON_2
+  TON_5
   TON_1_5
   TON_3_5
   TON_7
+  TON_8
   TON_10
+  TON_15
   OTHER
 }
 
@@ -232,6 +237,8 @@ model Order {
   notifyNote        String?
   trackShareOn      Boolean     @default(false)
   driverStage       String?
+  /// 外勤司机跟踪页 token（无登录、无价格）
+  crewTrackToken    String?     @unique
   /// JSON string[] — 司机「已提货」装车照片（data URL 或 http）
   pickupPhotos      String?
   /// JSON string[] — 司机「已送达」卸车完成照片

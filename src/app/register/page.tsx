@@ -21,7 +21,7 @@ export default function RegisterPage() {
     });
     setLoading(false);
     if (!res.ok) {
-      message.error(res.message || "注册失败");
+      message.error(res.message || t("auth.register_fail", "注册失败"));
       return;
     }
     setDone(true);

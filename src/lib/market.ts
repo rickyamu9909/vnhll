@@ -588,10 +588,12 @@ export function normalizeProofPhotos(raw: unknown, label: string): string[] {
   return list;
 }
 
-export async function setDriverStage(orderId: string, userId: string, stageKey: string, photos?: unknown) {
+export async function setDriverStage(orderId: string, userId: string | null, stageKey: string, photos?: unknown, opts?: { crew?: boolean }) {
   const order = await prisma.order.findUnique({ where: { id: orderId } });
   if (!order) throw new Error("订单不存在");
-  if (order.acceptedByUserId !== userId && order.assignedToUserId !== userId) throw new Error("无权更新该订单");
+  if (!opts?.crew) {
+    if (!userId || (order.acceptedByUserId !== userId && order.assignedToUserId !== userId)) throw new Error("无权更新该订单");
+  }
   const allowed: OrderStatus[] = [OrderStatus.PENDING_EXECUTION, OrderStatus.IN_TRANSIT, OrderStatus.DELIVERED, OrderStatus.MATCHED];
   if (!allowed.includes(order.status)) throw new Error("当前状态不能更新运输节点");
   const issue = stageKey === DRIVER_ISSUE.key;
@@ -610,11 +612,12 @@ export async function setDriverStage(orderId: string, userId: string, stageKey: 
     trackShareOn = true;
   }
   // 车辆异常：不改轨迹开关
+  const notePrefix = opts?.crew ? "外勤司机更新节点" : "司机更新节点";
   const data: Prisma.OrderUpdateInput = {
     driverStage: stageKey,
     status: next,
     trackShareOn,
-    statusLogs: { create: { fromStatus: order.status, toStatus: next, note: `司机更新节点：${label}`, operatorId: userId } },
+    statusLogs: { create: { fromStatus: order.status, toStatus: next, note: `${notePrefix}：${label}`, operatorId: userId } },
   };
   if (stageKey === "picked") {
     data.pickupPhotos = JSON.stringify(normalizeProofPhotos(photos, "装车照片"));
@@ -626,18 +629,21 @@ export async function setDriverStage(orderId: string, userId: string, stageKey: 
     where: { id: orderId },
     data,
   });
-  await logOp(userId, "ORDER_STAGE", "order", orderId, stageKey);
+  await logOp(userId, opts?.crew ? "CREW_ORDER_STAGE" : "ORDER_STAGE", "order", orderId, stageKey);
   return updated;
 }
 
-export async function cancelDriverStage(orderId: string, userId: string, stageKey: string) {
+export async function cancelDriverStage(orderId: string, userId: string | null, stageKey: string, opts?: { crew?: boolean }) {
   const order = await prisma.order.findUnique({ where: { id: orderId } });
   if (!order) throw new Error("订单不存在");
-  if (order.acceptedByUserId !== userId && order.assignedToUserId !== userId) throw new Error("无权更新该订单");
+  if (!opts?.crew) {
+    if (!userId || (order.acceptedByUserId !== userId && order.assignedToUserId !== userId)) throw new Error("无权更新该订单");
+  }
   if (order.driverStage !== stageKey) throw new Error("只能取消当前已锁定的节点");
   const label = stageKey === DRIVER_ISSUE.key ? DRIVER_ISSUE.label : DRIVER_STAGES.find((s) => s.key === stageKey)?.label || stageKey;
   // 取消「前往提货」且仍待执行 → 停止上报；已运输中则保持上报
   const stopShare = stageKey === "going_pickup" || (order.status === OrderStatus.PENDING_EXECUTION && stageEnablesTracking(stageKey));
+  const notePrefix = opts?.crew ? "外勤取消节点" : "取消节点";
   const updated = await prisma.order.update({
     where: { id: orderId },
     data: {
@@ -647,13 +653,13 @@ export async function cancelDriverStage(orderId: string, userId: string, stageKe
         create: {
           fromStatus: order.status,
           toStatus: order.status,
-          note: `取消节点：${label}`,
+          note: `${notePrefix}：${label}`,
           operatorId: userId,
         },
       },
     },
   });
-  await logOp(userId, "ORDER_STAGE_CANCEL", "order", orderId, stageKey);
+  await logOp(userId, opts?.crew ? "CREW_ORDER_STAGE_CANCEL" : "ORDER_STAGE_CANCEL", "order", orderId, stageKey);
   return updated;
 }
 

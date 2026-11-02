@@ -76,7 +76,10 @@ export default function TeamPage() {
           <Form.Item name="vehicleType" initialValue="TON_3_5">
             <Select
               style={{ width: 120 }}
-              options={["TON_1_5", "TON_3_5", "TON_7", "TON_10"].map((v) => ({ value: v, label: vehicleLabel(v, t) }))}
+              options={["TON_1", "TON_2", "TON_5", "TON_1_5", "TON_3_5", "TON_7", "TON_8", "TON_10", "TON_15"].map((v) => ({
+                value: v,
+                label: vehicleLabel(v, t),
+              }))}
             />
           </Form.Item>
           <Form.Item name="loadTons" initialValue={3.5}>

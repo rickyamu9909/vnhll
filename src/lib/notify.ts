@@ -2,10 +2,15 @@ import dayjs from "dayjs";
 import { VehicleType } from "@prisma/client";
 
 const VEHICLE_LABEL: Record<VehicleType, { zh: string; vi: string }> = {
+  TON_1: { zh: "1吨", vi: "1 tấn" },
+  TON_2: { zh: "2吨", vi: "2 tấn" },
+  TON_5: { zh: "5吨", vi: "5 tấn" },
   TON_1_5: { zh: "1.5吨", vi: "1.5 tấn" },
   TON_3_5: { zh: "3.5吨", vi: "3.5 tấn" },
   TON_7: { zh: "7吨", vi: "7 tấn" },
+  TON_8: { zh: "8吨", vi: "8 tấn" },
   TON_10: { zh: "10吨", vi: "10 tấn" },
+  TON_15: { zh: "15吨", vi: "15 tấn" },
   OTHER: { zh: "其他", vi: "Khác" },
 };
 

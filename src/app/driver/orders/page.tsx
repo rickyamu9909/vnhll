@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Card, Table, Tabs, Typography, message } from "antd";
+import { Button, Card, Space, Table, Tabs, Typography, message } from "antd";
 import { DriverShell } from "@/components/DriverShell";
 import { MatchSuggestions } from "@/components/MatchSuggestions";
 import { orderColumns, orderLink } from "@/components/OrderListBits";
@@ -16,6 +16,8 @@ export default function MyDriverOrders() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("all");
   const [query, setQuery] = useState<Record<string, string>>({});
+  const [copyingId, setCopyingId] = useState<string | null>(null);
+
   useEffect(() => {
     (async () => {
       const res = await apiFetch<OrderListRow[]>("/api/driver/orders?scope=mine");
@@ -24,6 +26,23 @@ export default function MyDriverOrders() {
       else setRows(res.data || []);
     })();
   }, [t]);
+
+  const copyCrewLink = async (orderId: string) => {
+    setCopyingId(orderId);
+    const res = await apiFetch<{ url: string }>(`/api/driver/orders/${orderId}/crew-link`, { method: "POST" });
+    setCopyingId(null);
+    if (!res.ok || !res.data?.url) {
+      message.error(res.message || t("crew.copy_fail", "复制跟踪链接失败"));
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(res.data.url);
+      message.success(t("crew.copied", "已复制司机跟踪链接（无价格）"));
+    } catch {
+      message.info(res.data.url);
+    }
+  };
+
   const shown = useMemo(() => rows.filter((row) => orderInTab(row, tab) && orderMatches(row, query, t)), [rows, tab, query, t]);
   return (
     <DriverShell>
@@ -36,7 +55,7 @@ export default function MyDriverOrders() {
           rowKey="id"
           loading={loading}
           dataSource={shown}
-          scroll={{ x: 1600 }}
+          scroll={{ x: 1680 }}
           pagination={{
             pageSize: 15,
             showSizeChanger: true,
@@ -45,9 +64,16 @@ export default function MyDriverOrders() {
           }}
           columns={orderColumns(t, {
             title: t("order.op", "操作"),
-            width: 90,
+            width: 220,
             fixed: "right",
-            render: (_, row) => orderLink(`/driver/orders/${row.id}`, t("action.detail", "详情")),
+            render: (_, row) => (
+              <Space size={4} wrap>
+                {orderLink(`/driver/orders/${row.id}`, t("action.detail", "详情"))}
+                <Button size="small" loading={copyingId === row.id} onClick={() => void copyCrewLink(row.id)}>
+                  {t("crew.copy_link_short", "跟踪链接")}
+                </Button>
+              </Space>
+            ),
           })}
         />
       </Card>
