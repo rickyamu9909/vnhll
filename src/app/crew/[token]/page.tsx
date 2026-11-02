@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { Alert, Button, Card, Descriptions, Layout, Modal, Space, Typography, message } from "antd";
 import { CrewTrackReporter } from "@/components/CrewTrackReporter";
-import { DriverNavMap } from "@/components/DriverNavMap";
+import { DriverNavMaps } from "@/components/DriverNavMaps";
 import { LocaleSwitch } from "@/components/LocaleSwitch";
 import { MultiPhotoPicker } from "@/components/MultiPhotoPicker";
 import { OrderProofPhotos } from "@/components/OrderProofPhotos";
@@ -193,8 +193,10 @@ export default function CrewTrackPage() {
         </Descriptions>
 
         <OrderProofPhotos pickupPhotos={order.pickupPhotos} deliveryPhotos={order.deliveryPhotos} />
-        <DriverNavMap title={t("driver.nav_pickup", "提货点")} destAddress={order.pickupAddress} destLat={order.originLat} destLng={order.originLng} />
-        <DriverNavMap title={t("driver.nav_dest", "目的地")} destAddress={order.deliveryAddress} destLat={order.destLat} destLng={order.destLng} />
+        <DriverNavMaps
+          pickup={{ destAddress: order.pickupAddress, destLat: order.originLat, destLng: order.originLng }}
+          dest={{ destAddress: order.deliveryAddress, destLat: order.destLat, destLng: order.destLng }}
+        />
 
         {canStage ? (
           <div style={{ marginTop: 16 }}>

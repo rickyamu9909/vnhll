@@ -30,6 +30,97 @@ export type RouteEstimate = {
 
 const polylineCache = new Map<string, Array<[number, number]> | null>();
 
+export type NavRouteResult = {
+  distanceKm: number;
+  durationMin: number;
+  source: "osrm" | "straight" | "cache";
+  /** [lat, lng][] 简化折线 */
+  coordinates: Array<[number, number]>;
+  cached: boolean;
+};
+
+type NavCacheEntry = { at: number; data: NavRouteResult };
+const navRouteCache = new Map<string, NavCacheEntry>();
+const NAV_CACHE_TTL_MS = 10 * 60 * 1000;
+
+function roundNavCoord(n: number) {
+  // ~110m 网格，同一路段 GPS 抖动可命中缓存
+  return Math.round(n * 1000) / 1000;
+}
+
+function inVietnamBBox(c: Coord) {
+  return c.lat >= 8 && c.lat <= 24.5 && c.lng >= 102 && c.lng <= 110.5;
+}
+
+/** 司机页内导航：简化折线 + TTL 缓存（供公开 API / 跟踪页） */
+export async function navRouteCached(origin: Coord, dest: Coord): Promise<NavRouteResult | { error: string }> {
+  if (![origin.lat, origin.lng, dest.lat, dest.lng].every(Number.isFinite)) {
+    return { error: "坐标不完整" };
+  }
+  if (!inVietnamBBox(origin) || !inVietnamBBox(dest)) {
+    return { error: "坐标不在越南服务范围" };
+  }
+  const straight = haversineKm(origin, dest);
+  if (straight > 800) {
+    return { error: "起终点过远" };
+  }
+
+  const key = `${roundNavCoord(origin.lat)},${roundNavCoord(origin.lng)}>${roundNavCoord(dest.lat)},${roundNavCoord(dest.lng)}`;
+  const hit = navRouteCache.get(key);
+  if (hit && Date.now() - hit.at < NAV_CACHE_TTL_MS) {
+    return { ...hit.data, source: "cache", cached: true };
+  }
+
+  const fallback: NavRouteResult = {
+    distanceKm: Math.round(straight * 10) / 10,
+    durationMin: Math.max(1, Math.round((straight / 28) * 60)),
+    source: "straight",
+    coordinates: [
+      [origin.lat, origin.lng],
+      [dest.lat, dest.lng],
+    ],
+    cached: false,
+  };
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 7000);
+  try {
+    const url = `https://router.project-osrm.org/route/v1/driving/${origin.lng},${origin.lat};${dest.lng},${dest.lat}?overview=simplified&geometries=geojson`;
+    const res = await fetch(url, { signal: ctrl.signal, headers: { Accept: "application/json" } });
+    if (!res.ok) {
+      navRouteCache.set(key, { at: Date.now(), data: fallback });
+      return fallback;
+    }
+    const data = (await res.json()) as {
+      routes?: Array<{ distance?: number; duration?: number; geometry?: { coordinates?: Array<[number, number]> } }>;
+    };
+    const route = data.routes?.[0];
+    const raw = route?.geometry?.coordinates;
+    if (!route?.distance || !raw?.length) {
+      navRouteCache.set(key, { at: Date.now(), data: fallback });
+      return fallback;
+    }
+    const result: NavRouteResult = {
+      distanceKm: Math.round((route.distance / 1000) * 10) / 10,
+      durationMin: Math.max(1, Math.round(((route.duration || 0) / 60) * 1.35)),
+      source: "osrm",
+      coordinates: raw.map(([lng, lat]) => [lat, lng] as [number, number]),
+      cached: false,
+    };
+    navRouteCache.set(key, { at: Date.now(), data: result });
+    if (navRouteCache.size > 500) {
+      const oldest = [...navRouteCache.entries()].sort((a, b) => a[1].at - b[1].at).slice(0, 100);
+      for (const [k] of oldest) navRouteCache.delete(k);
+    }
+    return result;
+  } catch {
+    navRouteCache.set(key, { at: Date.now(), data: fallback });
+    return fallback;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export function haversineKm(a: Coord, b: Coord) {
   const radius = 6371;
   const dLat = ((b.lat - a.lat) * Math.PI) / 180;

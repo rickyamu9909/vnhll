@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Alert, Button, Space, Typography } from "antd";
+import { Alert, Button, Modal, Space, Typography } from "antd";
 import { useI18n } from "@/components/I18nProvider";
+import { apiFetch } from "@/lib/client";
 import { attachBaseTiles, haversineKm, inVietnamBBox } from "@/lib/map-tiles";
 
 type Props = {
@@ -11,6 +12,17 @@ type Props = {
   destAddress: string;
   title: string;
   autoStart?: boolean;
+  /** 受控展开（用于提货/送货互斥） */
+  expanded?: boolean;
+  onExpandedChange?: (open: boolean) => void;
+};
+
+type NavRouteData = {
+  distanceKm: number;
+  durationMin: number;
+  source: string;
+  coordinates: Array<[number, number]>;
+  cached?: boolean;
 };
 
 function leafletGlobal() {
@@ -44,18 +56,42 @@ function loadLeaflet(): Promise<any> {
   });
 }
 
-export function DriverNavMap({ destLat, destLng, destAddress, title, autoStart = false }: Props) {
+export function DriverNavMap({
+  destLat,
+  destLng,
+  destAddress,
+  title,
+  autoStart = false,
+  expanded,
+  onExpandedChange,
+}: Props) {
   const { t } = useI18n();
   const ref = useRef<HTMLDivElement>(null);
   const [error, setError] = useState("");
   const [warn, setWarn] = useState("");
-  const [open, setOpen] = useState(autoStart);
+  const [innerOpen, setInnerOpen] = useState(autoStart);
+  const open = expanded !== undefined ? expanded : innerOpen;
+  const setOpen = (v: boolean) => {
+    if (onExpandedChange) onExpandedChange(v);
+    else setInnerOpen(v);
+  };
   const [pos, setPos] = useState<{ lat: number; lng: number } | null>(null);
   const [eta, setEta] = useState("");
   const [tileFail, setTileFail] = useState(false);
+  const [mapReady, setMapReady] = useState(false);
 
   useEffect(() => {
-    if (!open || !ref.current) return;
+    if (!open) {
+      setMapReady(false);
+      return;
+    }
+    // 等 DOM 挂上再标 ready，触发地图初始化
+    const id = window.requestAnimationFrame(() => setMapReady(true));
+    return () => window.cancelAnimationFrame(id);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || !mapReady || !ref.current) return;
     let watchId = 0;
     let map: any;
     let meMarker: any;
@@ -71,15 +107,34 @@ export function DriverNavMap({ destLat, destLng, destAddress, title, autoStart =
         if (cancelled || !ref.current) return;
         const dest = destLat != null && destLng != null ? { lat: destLat, lng: destLng } : null;
         const center = dest && inVietnamBBox(dest.lat, dest.lng) ? [dest.lat, dest.lng] : [10.77, 106.7];
-        map = L.map(ref.current, { preferCanvas: true }).setView(center, 12);
+        map = L.map(ref.current, { preferCanvas: true, zoomControl: true }).setView(center, 12);
         attachBaseTiles(L, map, () => setTileFail(true));
-
         if (dest) L.marker([dest.lat, dest.lng]).addTo(map).bindPopup(destAddress || title);
+        // 移动端布局后需刷新尺寸
+        window.setTimeout(() => map.invalidateSize(), 80);
+
+        const applyRoute = (from: { lat: number; lng: number }, data: NavRouteData) => {
+          const latlngs = data.coordinates?.length
+            ? data.coordinates
+            : [
+                [from.lat, from.lng],
+                [dest!.lat, dest!.lng],
+              ];
+          if (routeLine) map.removeLayer(routeLine);
+          routeLine = L.polyline(latlngs, { color: "#2563eb", weight: 5 }).addTo(map);
+          map.fitBounds(routeLine.getBounds(), { padding: [24, 24] });
+          setWarn("");
+          setEta(
+            t("nav.eta", "距{dest}约 {km} 公里 · {min} 分钟（越南路况）")
+              .replace("{dest}", title)
+              .replace("{km}", String(data.distanceKm))
+              .replace("{min}", String(data.durationMin))
+          );
+        };
 
         const drawRoute = async (from: { lat: number; lng: number }, to: { lat: number; lng: number }, force = false) => {
           const now = Date.now();
           const movedKm = lastRouteFrom ? haversineKm(lastRouteFrom, from) : 999;
-          // 最多约 45 秒或移动超过 400m 才重算；避免每次 GPS 回调都打公共 OSRM 卡死页面
           if (!force && routeBusy) return;
           if (!force && now - lastRouteAt < 45000 && movedKm < 0.4) return;
 
@@ -96,10 +151,9 @@ export function DriverNavMap({ destLat, destLng, destAddress, title, autoStart =
             return;
           }
 
-          const straight = haversineKm(from, to);
-          if (straight > 800) {
+          if (haversineKm(from, to) > 800) {
             setWarn(t("nav.too_far", "起终点过远，已跳过路网规划，仅显示标记。"));
-            setEta(t("nav.straight", "直线约 {km} 公里").replace("{km}", String(Math.round(straight))));
+            setEta(t("nav.straight", "直线约 {km} 公里").replace("{km}", String(Math.round(haversineKm(from, to)))));
             return;
           }
 
@@ -107,29 +161,14 @@ export function DriverNavMap({ destLat, destLng, destAddress, title, autoStart =
           lastRouteAt = now;
           lastRouteFrom = from;
           try {
-            const ctrl = new AbortController();
-            const timer = window.setTimeout(() => ctrl.abort(), 8000);
-            const url = `https://router.project-osrm.org/route/v1/driving/${from.lng},${from.lat};${to.lng},${to.lat}?overview=simplified&geometries=geojson`;
-            const res = await fetch(url, { signal: ctrl.signal });
-            window.clearTimeout(timer);
-            const data = await res.json();
+            const qs = `oLat=${from.lat}&oLng=${from.lng}&dLat=${to.lat}&dLng=${to.lng}`;
+            const res = await apiFetch<NavRouteData>(`/api/geo/nav-route?${qs}`);
             if (cancelled) return;
-            const route = data.routes?.[0];
-            const coords = route?.geometry?.coordinates;
-            if (!coords) return;
-            const latlngs = coords.map((c: number[]) => [c[1], c[0]]);
-            if (routeLine) map.removeLayer(routeLine);
-            routeLine = L.polyline(latlngs, { color: "#2563eb", weight: 5 }).addTo(map);
-            map.fitBounds(routeLine.getBounds(), { padding: [24, 24] });
-            setWarn("");
-            const km = Math.round((route.distance / 1000) * 10) / 10;
-            const min = Math.max(1, Math.round((route.duration / 60) * 1.35));
-            setEta(
-              t("nav.eta", "距{dest}约 {km} 公里 · {min} 分钟（越南路况）")
-                .replace("{dest}", title)
-                .replace("{km}", String(km))
-                .replace("{min}", String(min))
-            );
+            if (!res.ok || !res.data) {
+              setWarn(t("nav.route_slow", "路网规划超时或不可用，已显示当前位置与终点。"));
+              return;
+            }
+            applyRoute(from, res.data);
           } catch {
             setWarn(t("nav.route_slow", "路网规划超时或不可用，已显示当前位置与终点。"));
           } finally {
@@ -172,7 +211,7 @@ export function DriverNavMap({ destLat, destLng, destAddress, title, autoStart =
       if (watchId) navigator.geolocation.clearWatch(watchId);
       if (map) map.remove();
     };
-  }, [open, destLat, destLng, destAddress, title, t]);
+  }, [open, mapReady, destLat, destLng, destAddress, title, t]);
 
   const gmaps = pos
     ? `https://www.google.com/maps/dir/?api=1&origin=${pos.lat},${pos.lng}&destination=${
@@ -181,6 +220,21 @@ export function DriverNavMap({ destLat, destLng, destAddress, title, autoStart =
     : `https://www.google.com/maps/dir/?api=1&destination=${
         destLat != null && destLng != null ? `${destLat},${destLng}` : encodeURIComponent(destAddress)
       }&travelmode=driving`;
+
+  const openGoogleMaps = () => {
+    Modal.confirm({
+      title: t("nav.google_confirm_title", "打开谷歌地图？"),
+      content: t(
+        "nav.google_confirm_body",
+        "跳转到谷歌地图后，本页位置上报会暂停。导航结束后请返回本页，上报会自动恢复。"
+      ),
+      okText: t("nav.google_confirm_ok", "仍要打开"),
+      cancelText: t("action.cancel", "取消"),
+      onOk: () => {
+        window.open(gmaps, "_blank", "noopener,noreferrer");
+      },
+    });
+  };
 
   return (
     <div style={{ marginTop: 12 }}>
@@ -203,7 +257,7 @@ export function DriverNavMap({ destLat, destLng, destAddress, title, autoStart =
             {t("nav.collapse", "收起")}
           </Button>
         ) : null}
-        <Button href={gmaps} target="_blank" rel="noopener noreferrer" style={{ background: "#0ea5e9", borderColor: "#0ea5e9", color: "#fff" }}>
+        <Button onClick={openGoogleMaps} style={{ background: "#0ea5e9", borderColor: "#0ea5e9", color: "#fff" }}>
           {t("nav.google", "用谷歌地图打开")}
         </Button>
       </Space>
@@ -223,7 +277,7 @@ export function DriverNavMap({ destLat, destLng, destAddress, title, autoStart =
           ) : (
             <Typography.Text type="secondary">{t("nav.locating", "正在获取当前位置并规划到{dest}…").replace("{dest}", title)}</Typography.Text>
           )}
-          <div ref={ref} style={{ height: 360, width: "100%", marginTop: 8, borderRadius: 8, border: "1px solid #e2e8f0" }} />
+          <div ref={ref} style={{ height: 280, width: "100%", marginTop: 8, borderRadius: 8, border: "1px solid #e2e8f0" }} />
         </div>
       ) : null}
     </div>

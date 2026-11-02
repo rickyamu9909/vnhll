@@ -536,6 +536,9 @@ export const UI_TEXT: Record<"zh" | "vi", Record<string, string>> = {
     "nav.too_far": "起终点过远，已跳过路网规划，仅显示标记。",
     "nav.straight": "直线约 {km} 公里",
     "nav.route_slow": "路网规划超时或不可用，已显示当前位置与终点。",
+    "nav.google_confirm_title": "打开谷歌地图？",
+    "nav.google_confirm_body": "跳转到谷歌地图后，本页位置上报会暂停。导航结束后请返回本页，上报会自动恢复。",
+    "nav.google_confirm_ok": "仍要打开",
   },
   vi: {
     "nav.dashboard": "Bảng điều khiển",
@@ -1073,5 +1076,8 @@ export const UI_TEXT: Record<"zh" | "vi", Record<string, string>> = {
     "nav.too_far": "Điểm quá xa, bỏ quy hoạch đường, chỉ hiện điểm.",
     "nav.straight": "Đường thẳng khoảng {km} km",
     "nav.route_slow": "Quy hoạch đường chậm/không khả dụng; đã hiện vị trí và điểm đích.",
+    "nav.google_confirm_title": "Mở Google Maps?",
+    "nav.google_confirm_body": "Sau khi chuyển sang Google Maps, gửi vị trí trên trang này sẽ tạm dừng. Sau khi điều hướng xong hãy quay lại trang này để tiếp tục gửi.",
+    "nav.google_confirm_ok": "Vẫn mở",
   },
 };

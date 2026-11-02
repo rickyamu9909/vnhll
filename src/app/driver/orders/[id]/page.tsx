@@ -10,7 +10,7 @@ import { OrderProofPhotos } from "@/components/OrderProofPhotos";
 import { apiFetch, pathLabel, statusLabel } from "@/lib/client";
 import { useI18n } from "@/components/I18nProvider";
 import { formatVnd } from "@/lib/money";
-import { DriverNavMap } from "@/components/DriverNavMap";
+import { DriverNavMaps } from "@/components/DriverNavMaps";
 import { DRIVER_ISSUE, DRIVER_STAGES, stageLabel } from "@/lib/stages";
 import { parseProofPhotos } from "@/lib/proof-photos";
 
@@ -226,8 +226,10 @@ export default function DriverOrderDetail() {
             )}
           />
         ) : null}
-        <DriverNavMap title={t("driver.nav_pickup", "提货点")} destAddress={order.pickupAddress} destLat={order.originLat} destLng={order.originLng} />
-        <DriverNavMap title={t("driver.nav_dest", "目的地")} destAddress={order.deliveryAddress} destLat={order.destLat} destLng={order.destLng} />
+        <DriverNavMaps
+          pickup={{ destAddress: order.pickupAddress, destLat: order.originLat, destLng: order.originLng }}
+          dest={{ destAddress: order.deliveryAddress, destLat: order.destLat, destLng: order.destLng }}
+        />
         <Space style={{ marginTop: 16 }} wrap>
           {order.status === "OPEN" && order.matchPath === "A" && order.targetPriceVnd ? (
             <Button type="primary" onClick={() => act("accept")}>
